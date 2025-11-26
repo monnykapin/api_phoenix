@@ -17,6 +17,7 @@ const ratelimiter = require("express-rate-limit");
 
 //Router
 const authRouter = require("./src/routes/auth");
+const dashboard = require("./src/routes/dashboard");
 const tasks = require("./src/routes/task");
 const assets = require("./src/routes/asset");
 const projects = require("./src/routes/project");
@@ -57,6 +58,7 @@ app.use(passport.session());
 
 //Routes
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/dashboard", authentication, dashboard);
 app.use("/api/v1/tasks", authentication, tasks);
 app.use("/api/v1/projects", authentication, projects);
 app.use("/api/v1/assets", authentication, assets);
