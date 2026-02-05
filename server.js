@@ -3,7 +3,7 @@ const app = express();
 const notFound = require("./src/middleware/not-found");
 const errorHandlerMiddleware = require("./src/middleware/error-handler");
 const connectDB = require("./src/config/connect");
-require("dotenv").config({ path: "./src/config/.env" });
+require("dotenv").config();
 const passport = require("./src/config/passport");
 const session = require("express-session");
 
@@ -38,7 +38,7 @@ app.use(
     standardHeaders: "draft-7", // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
     // store: ... , // Use an external store for consistency across multiple server instances.
-  })
+  }),
 );
 app.use(express.json());
 app.use(helmet());
@@ -51,7 +51,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "your_default_session_secret",
     resave: false,
     saveUninitialized: false,
-  })
+  }),
 );
 app.use(passport.initialize());
 app.use(passport.session());
