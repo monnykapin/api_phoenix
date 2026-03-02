@@ -91,6 +91,7 @@ npm run docker:prod
 | Resource       | Base URL              | Authentication |
 | -------------- | --------------------- | -------------- |
 | Authentication | `/api/v1/auth`        | No             |
+| Profile        | `/api/v1/profile`     | Yes (JWT)      |
 | Tasks          | `/api/v1/tasks`       | Yes (JWT)      |
 | Projects       | `/api/v1/projects`    | Yes (JWT)      |
 | Assets         | `/api/v1/assets`      | Yes (JWT)      |
