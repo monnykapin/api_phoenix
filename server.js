@@ -23,6 +23,7 @@ const tasks = require("./src/routes/task");
 const assets = require("./src/routes/asset");
 const projects = require("./src/routes/project");
 const transactions = require("./src/routes/transaction");
+const guests = require("./src/routes/guest");
 
 const port = process.env.PORT || 3001;
 
@@ -65,6 +66,7 @@ app.use("/api/v1/tasks", authentication, tasks);
 app.use("/api/v1/projects", authentication, projects);
 app.use("/api/v1/assets", authentication, assets);
 app.use("/api/v1/transactions", authentication, transactions);
+app.use("/api/v1/guests", authentication, guests);
 
 //error handler
 app.use(notFound);

@@ -26,8 +26,17 @@ const register = asyncWrapper(async (req, res, next) => {
   }
 
   const user = await User.create({ ...req.body });
-  const token = user.createJWT();
-  res.status(StatusCodes.CREATED).json({ user: { name: user.name }, token });
+  const accessToken = user.createJWT();
+  const refreshToken = user.createRefreshToken();
+
+  // Save refresh token to database
+  await saveRefreshToken(user._id, refreshToken);
+
+  res.status(StatusCodes.CREATED).json({
+    user: { name: user.name },
+    accessToken,
+    refreshToken,
+  });
 });
 
 const login = asyncWrapper(async (req, res, next) => {
@@ -55,22 +64,104 @@ const login = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Invalid credentials", 401));
   }
 
-  const token = user.createJWT();
-  res.status(StatusCodes.OK).json({ user: { name: user.name }, token });
+  const accessToken = user.createJWT();
+  const refreshToken = user.createRefreshToken();
+
+  // Save refresh token to database
+  await saveRefreshToken(user._id, refreshToken);
+
+  res.status(StatusCodes.OK).json({
+    user: { name: user.name },
+    accessToken,
+    refreshToken,
+  });
 });
+
+/**
+ * Save refresh token to user
+ * @param {string} userId - User ID
+ * @param {string} refreshToken - Refresh token
+ */
+const saveRefreshToken = async (userId, refreshToken) => {
+  await User.findByIdAndUpdate(userId, { refreshToken });
+};
+
+/**
+ * Verify refresh token
+ * @param {string} token - Refresh token
+ * @returns {Promise<Object>} Decoded token payload
+ */
+const verifyRefreshToken = async (token) => {
+  return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+};
+
+/**
+ * Revoke refresh token
+ * @param {string} userId - User ID
+ */
+const revokeRefreshToken = async (userId) => {
+  await User.findByIdAndUpdate(userId, { refreshToken: null });
+};
 
 const githubCallback = async (req, res) => {
   // User is authenticated via passport
   const user = req.user;
 
-  // Generate JWT token using the user's createJWT method
-  const token = user.createJWT();
+  // Generate JWT tokens
+  const accessToken = user.createJWT();
+  const refreshToken = user.createRefreshToken();
 
-  // Return JSON response with user and token
+  // Save refresh token to database
+  await saveRefreshToken(user._id, refreshToken);
+
+  // Return JSON response with user and tokens
   res.status(StatusCodes.OK).json({
     user: { name: user.name, email: user.email },
-    token,
+    accessToken,
+    refreshToken,
   });
 };
 
-module.exports = { register, login, githubCallback };
+const refreshAccessToken = asyncWrapper(async (req, res, next) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return next(createCustomError("Refresh token is required", 401));
+  }
+
+  try {
+    // Verify refresh token
+    const decoded = await verifyRefreshToken(refreshToken);
+
+    // Find user and check if refresh token matches
+    const user = await User.findById(decoded.userId);
+    if (!user || user.refreshToken !== refreshToken) {
+      return next(createCustomError("Invalid refresh token", 401));
+    }
+
+    // Generate new access token
+    const newAccessToken = user.createJWT();
+
+    res.status(StatusCodes.OK).json({
+      accessToken: newAccessToken,
+    });
+  } catch (error) {
+    return next(createCustomError("Invalid or expired refresh token", 401));
+  }
+});
+
+const logout = asyncWrapper(async (req, res) => {
+  const userId = req.user.userId;
+  await revokeRefreshToken(userId);
+  res.status(StatusCodes.OK).json({ message: "Logged out successfully" });
+});
+
+module.exports = {
+  register,
+  login,
+  githubCallback,
+  saveRefreshToken,
+  verifyRefreshToken,
+  refreshAccessToken,
+  logout,
+};
