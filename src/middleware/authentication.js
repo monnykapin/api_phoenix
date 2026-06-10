@@ -1,4 +1,3 @@
-const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { createCustomError } = require("../error/custom-error");
 
@@ -13,7 +12,6 @@ const auth = (req, res, next) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    //attach the user for task route
     req.user = { userId: payload.userId, name: payload.name };
     next();
   } catch (error) {

@@ -22,6 +22,7 @@ const tasks = require("./src/routes/task");
 const assets = require("./src/routes/asset");
 const projects = require("./src/routes/project");
 const transactions = require("./src/routes/transaction");
+const guests = require("./src/routes/guest");
 
 const port = process.env.PORT || 3001;
 
@@ -38,7 +39,7 @@ app.use(
     standardHeaders: "draft-7", // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
     // store: ... , // Use an external store for consistency across multiple server instances.
-  })
+  }),
 );
 app.use(express.json());
 app.use(helmet());
@@ -51,7 +52,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "your_default_session_secret",
     resave: false,
     saveUninitialized: false,
-  })
+  }),
 );
 app.use(passport.initialize());
 app.use(passport.session());
@@ -63,6 +64,7 @@ app.use("/api/v1/tasks", authentication, tasks);
 app.use("/api/v1/projects", authentication, projects);
 app.use("/api/v1/assets", authentication, assets);
 app.use("/api/v1/transactions", authentication, transactions);
+app.use("/api/v1/guests", authentication, guests);
 
 //error handler
 app.use(notFound);
