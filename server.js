@@ -1,9 +1,9 @@
+require("dotenv").config({ path: "./src/config/.env" });
 const express = require("express");
 const app = express();
 const notFound = require("./src/middleware/not-found");
 const errorHandlerMiddleware = require("./src/middleware/error-handler");
 const connectDB = require("./src/config/connect");
-require("dotenv").config();
 const passport = require("./src/config/passport");
 const session = require("express-session");
 

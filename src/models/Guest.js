@@ -8,6 +8,12 @@ const GuestSchema = new mongoose.Schema(
       required: [true, "Please provide guest name"],
       maxlength: [120, "Guest name can not be more than 120 characters"],
     },
+    guestLocation: {
+      type: String,
+      trim: true,
+      required: [true, "Please provide guest location"],
+      maxlength: [120, "Guest location can not be more than 120 characters"],
+    },
     status: {
       type: String,
       enum: ["open", "closed"],
