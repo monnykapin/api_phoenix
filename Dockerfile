@@ -3,7 +3,11 @@
 # Development stage
 FROM node:18-alpine AS development
 
+ARG BUILD_NUMBER=dev
+
 WORKDIR /app
+
+ENV BUILD_NUMBER=${BUILD_NUMBER}
 
 # Copy package files
 COPY package*.json ./
@@ -21,7 +25,11 @@ CMD ["npm", "run", "dev"]
 # Production stage
 FROM node:18-alpine AS production
 
+ARG BUILD_NUMBER=dev
+
 WORKDIR /app
+
+ENV BUILD_NUMBER=${BUILD_NUMBER}
 
 # Copy package files
 COPY package*.json ./

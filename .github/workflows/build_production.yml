@@ -41,7 +41,11 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: nyka/api_phoenix:release
+          tags: |
+            nyka/api_phoenix:release
+            nyka/api_phoenix:release-build-${{ github.run_number }}
+          build-args: |
+            BUILD_NUMBER=${{ github.run_number }}
 
       - name: ntfy-success-notifications
         uses: niniyas/ntfy-action@master
