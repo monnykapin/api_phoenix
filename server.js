@@ -24,11 +24,24 @@ const assets = require("./src/routes/asset");
 const projects = require("./src/routes/project");
 const transactions = require("./src/routes/transaction");
 const guests = require("./src/routes/guest");
+const { version: appVersion } = require("./package.json");
 
 const port = process.env.PORT || 3001;
 
 //Connection String
 const connectString = process.env.MONGOURL;
+
+const getDatabaseHost = (uri) => {
+  if (!uri) return "not configured";
+
+  try {
+    return new URL(uri).host;
+  } catch (error) {
+    // Fallback parser for unexpected connection-string formats.
+    const match = uri.match(/@?([^/?]+)/);
+    return match?.[1] || "unknown";
+  }
+};
 
 //Middleware
 // Trust the first proxy in front of the app (e.g., Nginx, Heroku, etc.)
@@ -75,7 +88,17 @@ app.use(errorHandlerMiddleware);
 const start = async () => {
   try {
     await connectDB(connectString);
-    app.listen(port, console.log("Server is listening on port " + port));
+    const environment = process.env.NODE_ENV || "development";
+    const databaseHost = getDatabaseHost(connectString);
+    const buildNumber = process.env.BUILD_NUMBER || "dev";
+
+    app.listen(port, () => {
+      console.log(`Server is listening on port ${port}`);
+      console.log(`App version: ${appVersion}`);
+      console.log(`Build number: ${buildNumber}`);
+      console.log(`Environment: ${environment}`);
+      console.log(`Database host: ${databaseHost}`);
+    });
   } catch (error) {
     console.log(error);
   }

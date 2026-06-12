@@ -1,6 +1,7 @@
 {
   "name": "api_phoenix",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "buildNumber": "0",
   "description": "",
   "main": "server.js",
   "scripts": {
