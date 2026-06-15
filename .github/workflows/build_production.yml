@@ -4,24 +4,29 @@
 name: Build Production
 
 on:
-  push:
-    branches: ["release"]
   pull_request:
     branches: ["release"]
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
-      - name: Use Node v20
+      - name: Use latest Node.js LTS
         uses: actions/setup-node@v3
         with:
-          node-version: "20.x"
+          node-version: "lts/*"
           cache: "npm"
       - run: npm ci
       - run: npm run build --if-present
+
+      - name: Update BUILD_NUMBER in env file
+        run: |
+          if grep -q '^BUILD_NUMBER=' src/config/.env; then
+            sed -i "s/^BUILD_NUMBER=.*/BUILD_NUMBER=${{ github.run_number }}/" src/config/.env
+          else
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> src/config/.env
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
