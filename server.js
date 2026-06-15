@@ -71,6 +71,11 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Lightweight container liveness/readiness probe endpoint.
+app.get("/healthz", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 //Routes
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/dashboard", authentication, dashboard);
