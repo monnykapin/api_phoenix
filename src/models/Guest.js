@@ -19,6 +19,15 @@ const GuestSchema = new mongoose.Schema(
       enum: ["open", "closed"],
       default: "open",
     },
+    amount: {
+      type: Number,
+      default: 0,
+    },
+    currency: {
+      type: String,
+      trim: true,
+      default: "USD",
+    },
     createdBy: {
       type: mongoose.Types.ObjectId,
       ref: "User",
