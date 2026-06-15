@@ -23,6 +23,14 @@ jobs:
       - run: npm run build --if-present
       - run: npm test
 
+      - name: Update BUILD_NUMBER in env file
+        run: |
+          if grep -q '^BUILD_NUMBER=' src/config/.env; then
+            sed -i "s/^BUILD_NUMBER=.*/BUILD_NUMBER=${{ github.run_number }}/" src/config/.env
+          else
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> src/config/.env
+          fi
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
