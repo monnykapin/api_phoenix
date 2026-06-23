@@ -4,10 +4,11 @@
 name: Build Production
 
 on:
-  pull_request:
-    branches: ["release"]
+  pull_request_review:
+    types: [submitted]
 jobs:
   build:
+    if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'release'
     runs-on: ubuntu-latest
 
     steps:

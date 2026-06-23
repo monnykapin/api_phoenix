@@ -1,11 +1,11 @@
 # This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Build Test
+name: Build Develop
 
 on:
   push:
-    branches: ["master", "develop"]
+    branches: ["develop"]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -51,7 +51,7 @@ jobs:
           push: true
           tags: |
             nyka/api_phoenix:latest
-            nyka/api_phoenix:build-${{ github.run_number }}
+            nyka/api_phoenix:develop-build-${{ github.run_number }}
           build-args: |
             BUILD_NUMBER=${{ github.run_number }}
 
