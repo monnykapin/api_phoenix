@@ -4,6 +4,12 @@ require("dotenv").config();
 
 const connectDB = async (url) => {
   try {
+    console.log("=== Environment Variables Check ===");
+    console.log("DBNAME:", process.env.DBNAME);
+    console.log("DBUSER:", process.env.DBUSER);
+    console.log("DBAUTHMECHANISM:", process.env.DBAUTHMECHANISM);
+    console.log("NODE_ENV:", process.env.NODE_ENV);
+    console.log("===================================");
     const options = {
       dbName: process.env.DBNAME,
       user: process.env.DBUSER,
