@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for production and development
 
 # Development stage
-FROM node:18-alpine AS development
+FROM node:lts-alpine AS development
 
 ARG BUILD_NUMBER=dev
 
@@ -23,7 +23,7 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:lts-alpine AS production
 
 ARG BUILD_NUMBER=dev
 

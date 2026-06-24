@@ -61,9 +61,14 @@ app.use(cors());
 app.use(xss());
 
 // Session middleware (must be before passport and routes)
+if (!process.env.SESSION_SECRET) {
+  console.error("ERROR: SESSION_SECRET environment variable is required");
+  process.exit(1);
+}
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your_default_session_secret",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
   }),
