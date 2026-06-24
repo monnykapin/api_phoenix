@@ -1,7 +1,7 @@
 const User = require("../../src/models/User");
 const { StatusCodes } = require("http-status-codes");
 const asyncWrapper = require("../middleware/async");
-const { createCustomError } = require("../../src/error/custom-error");
+const { createCustomError } = require("../error/custom-error");
 const jwt = require("jsonwebtoken");
 
 const isEmailExists = async (email) => {
@@ -92,7 +92,7 @@ const saveRefreshToken = async (userId, refreshToken) => {
  * @returns {Promise<Object>} Decoded token payload
  */
 const verifyRefreshToken = async (token) => {
-  return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  return jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
 };
 
 /**
