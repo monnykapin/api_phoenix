@@ -16,8 +16,8 @@ const GuestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["open", "closed"],
-      default: "open",
+      enum: ["incoming", "outgoing", "settled"],
+      default: "incoming",
     },
     amount: {
       type: Number,
