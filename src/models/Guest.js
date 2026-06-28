@@ -17,7 +17,7 @@ const GuestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["incoming", "outgoing", "settled"],
-      default: "incoming",
+      default: "outgoing",
     },
     amount: {
       type: Number,
@@ -33,6 +33,12 @@ const GuestSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "Please provide user"],
     },
+    sharedWith: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );
