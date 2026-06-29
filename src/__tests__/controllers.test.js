@@ -81,7 +81,7 @@ describe("Guest Controller", () => {
         .expect(201);
 
       expect(res.body.guest.guestName).toBe("Test Guest");
-      expect(res.body.guest.status).toBe("incoming");
+      expect(res.body.guest.status).toBe("outgoing");
       expect(res.body.guest.amount).toBe(200);
     });
 

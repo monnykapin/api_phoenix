@@ -31,21 +31,21 @@ describe("Guest Model", () => {
 
     expect(guest.guestName).toBe("John Doe");
     expect(guest.guestLocation).toBe("Phnom Penh");
-    expect(guest.status).toBe("incoming");
+    expect(guest.status).toBe("outgoing");
     expect(guest.amount).toBe(100);
     expect(guest.currency).toBe("USD");
     expect(guest.createdAt).toBeDefined();
     expect(guest.updatedAt).toBeDefined();
   });
 
-  it("should default status to incoming", async () => {
+  it("should default status to outgoing", async () => {
     const guest = await Guest.create({
       guestName: "Jane",
       guestLocation: "Siem Reap",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
-    expect(guest.status).toBe("incoming");
+    expect(guest.status).toBe("outgoing");
   });
 
   it("should default amount to 0", async () => {
@@ -73,7 +73,7 @@ describe("Guest Model", () => {
       Guest.create({
         guestLocation: "Phnom Penh",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/guest name/);
   });
 
@@ -82,7 +82,7 @@ describe("Guest Model", () => {
       Guest.create({
         guestName: "John",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/guest location/);
   });
 
@@ -91,7 +91,7 @@ describe("Guest Model", () => {
       Guest.create({
         guestName: "John",
         guestLocation: "PP",
-      })
+      }),
     ).rejects.toThrow(/user/);
   });
 
@@ -102,7 +102,7 @@ describe("Guest Model", () => {
         guestLocation: "PP",
         status: "invalid-status",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -112,7 +112,7 @@ describe("Guest Model", () => {
         guestName: "A".repeat(121),
         guestLocation: "PP",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/120/);
   });
 
@@ -122,7 +122,7 @@ describe("Guest Model", () => {
         guestName: "John",
         guestLocation: "A".repeat(121),
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/120/);
   });
 });
@@ -226,7 +226,7 @@ describe("User Model", () => {
         name: "Test",
         email: "not-an-email",
         password: "password123",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -242,7 +242,7 @@ describe("User Model", () => {
         name: "Second",
         email: "dupe@example.com",
         password: "password123",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -252,7 +252,7 @@ describe("User Model", () => {
         name: "Test",
         email: "short@example.com",
         password: "12345",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -272,7 +272,7 @@ describe("User Model", () => {
         email: "neg@example.com",
         password: "password123",
         balance: -1,
-      })
+      }),
     ).rejects.toThrow();
   });
 });
@@ -306,7 +306,7 @@ describe("Task Model", () => {
       Task.create({
         name: "A".repeat(121),
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/120/);
   });
 
@@ -316,7 +316,7 @@ describe("Task Model", () => {
         name: "Task",
         description: "A".repeat(251),
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow(/250/);
   });
 
@@ -326,7 +326,7 @@ describe("Task Model", () => {
         name: "Task",
         status: "invalid",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -368,7 +368,7 @@ describe("Project Model", () => {
       Project.create({
         description: "Missing name",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -377,7 +377,7 @@ describe("Project Model", () => {
       Project.create({
         name: "Missing Description",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -431,7 +431,7 @@ describe("Project Model", () => {
         description: "Invalid status",
         status: "unknown",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 });
@@ -457,7 +457,7 @@ describe("Transaction Model", () => {
         type: "expense",
         amount: 100,
         description: "Food",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -467,7 +467,7 @@ describe("Transaction Model", () => {
         userId: new mongoose.Types.ObjectId(),
         amount: 100,
         description: "Food",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -477,7 +477,7 @@ describe("Transaction Model", () => {
         userId: new mongoose.Types.ObjectId(),
         type: "expense",
         description: "Food",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -487,7 +487,7 @@ describe("Transaction Model", () => {
         userId: new mongoose.Types.ObjectId(),
         type: "expense",
         amount: 100,
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -498,7 +498,7 @@ describe("Transaction Model", () => {
         type: "expense",
         amount: -50,
         description: "Negative",
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -509,7 +509,7 @@ describe("Transaction Model", () => {
         type: "invalid",
         amount: 100,
         description: "Bad type",
-      })
+      }),
     ).rejects.toThrow();
   });
 
