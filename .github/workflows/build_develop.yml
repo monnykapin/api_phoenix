@@ -6,7 +6,7 @@ name: Build Develop
 on:
   push:
     branches: ["develop"]
-    
+
 permissions:
   contents: read
   packages: write
@@ -51,7 +51,10 @@ jobs:
 
       - name: Set lowercase repository owner
         run: echo "REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-        
+
+      - name: Set lowercase actor
+        run: echo "LOWER_ACTOR=$(echo '${{ github.actor }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -59,8 +62,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.actor }}/api_phoenix:latest
-            ghcr.io/${{ github.actor }}/api_phoenix:develop-build-${{ github.run_number }}
+            ghcr.io/${{ env.LOWER_ACTOR }}/api_phoenix:latest
+            ghcr.io/${{ env.LOWER_ACTOR }}/api_phoenix:develop-build-${{ github.run_number }}
           build-args: |
             BUILD_NUMBER=${{ github.run_number }}
 
