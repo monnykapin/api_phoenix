@@ -42,7 +42,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Set package namespace
+        run: echo "PKG_NS=$(echo '${{ secrets.GHCR_NAMESPACE || github.actor }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -51,8 +54,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.actor }}/api_phoenix:release
-            ghcr.io/${{ github.actor }}/api_phoenix:release-build-${{ github.run_number }}
+            ghcr.io/${{ env.PKG_NS }}/api_phoenix:release
+            ghcr.io/${{ env.PKG_NS }}/api_phoenix:release-build-${{ github.run_number }}
           build-args: |
             BUILD_NUMBER=${{ github.run_number }}
 
