@@ -1,0 +1,89 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Build Develop
+
+on:
+  push:
+    branches: ["develop"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use latest Node.js LTS
+        uses: actions/setup-node@v3
+        with:
+          node-version: "lts/*"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test
+
+      - name: Update BUILD_NUMBER in env file
+        run: |
+          if grep -q '^BUILD_NUMBER=' src/config/.env; then
+            sed -i "s/^BUILD_NUMBER=.*/BUILD_NUMBER=${{ github.run_number }}/" src/config/.env
+          else
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> src/config/.env
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository owner
+        run: echo "REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_OWNER }}/api_phoenix:latest
+            ghcr.io/${{ env.REPO_OWNER }}/api_phoenix:develop-build-${{ github.run_number }}
+          build-args: |
+            BUILD_NUMBER=${{ github.run_number }}
+
+      - name: ntfy-success-notifications
+        uses: niniyas/ntfy-action@master
+        if: success()
+        with:
+          url: "https://ntfy.monnyka.top"
+          topic: "server"
+          priority: 4
+          headers: '{"authorization": "Basic 123456", "another-one": "Basic 123456"}'
+          tags: +1,partying_face,action,successfully,completed
+          details: Workflow has been successfully completed!!
+
+      - name: Notify Watchtower
+        run: |
+          curl -H "Authorization: ******" https://watchtower.monnyka.top/v1/update
+        if: success()
+      - name: Show available npm scripts
+        run: npm run
+        if: failure()
+      - name: ntfy-failure-notifications
+        uses: niniyas/ntfy-action@master
+        if: failure()
+        with:
+          url: "https://ntfy.monnyka.top"
+          topic: "server"
+          priority: 4
+          headers: '{"authorization": "Basic 123456", "another-one": "Basic 123456"}'
+          tags: -1,crying_face,action,failed,error
+          details: Workflow has been failed. Please check.
