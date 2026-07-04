@@ -4,8 +4,8 @@
 name: Build Production
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'release'
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'release'
     runs-on: ubuntu-latest
 
     steps:
