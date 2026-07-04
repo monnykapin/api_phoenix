@@ -1,4 +1,4 @@
-﻿# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
 name: Build Develop
@@ -6,6 +6,11 @@ name: Build Develop
 on:
   push:
     branches: ["develop"]
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,6 +49,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lowercase repository owner
+        run: echo "REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Set lowercase actor
+        run: echo "LOWER_ACTOR=$(echo '${{ github.actor }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -51,8 +62,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/api_phoenix:latest
-            ghcr.io/${{ github.repository_owner }}/api_phoenix:develop-build-${{ github.run_number }}
+            ghcr.io/${{ env.LOWER_ACTOR }}/api_phoenix:latest
+            ghcr.io/${{ env.LOWER_ACTOR }}/api_phoenix:develop-build-${{ github.run_number }}
           build-args: |
             BUILD_NUMBER=${{ github.run_number }}
 
@@ -69,7 +80,7 @@ jobs:
 
       - name: Notify Watchtower
         run: |
-          curl -H "Authorization: Bearer BvnmaxcdYTGDndk5rSq1" https://watchtower.monnyka.top/v1/update
+          curl -H "Authorization: ******" https://watchtower.monnyka.top/v1/update
         if: success()
       - name: Show available npm scripts
         run: npm run
