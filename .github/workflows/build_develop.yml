@@ -6,6 +6,11 @@ name: Build Develop
 on:
   push:
     branches: ["develop"]
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
