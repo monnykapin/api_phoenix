@@ -24,6 +24,8 @@ const assets = require("./src/routes/asset");
 const projects = require("./src/routes/project");
 const transactions = require("./src/routes/transaction");
 const guests = require("./src/routes/guest");
+const rentals = require("./src/routes/rental");
+const { startRentalStatusCron } = require("./src/jobs/rental-status");
 const { version: appVersion } = require("./package.json");
 
 const port = process.env.PORT || 3001;
@@ -90,6 +92,7 @@ app.use("/api/v1/projects", authentication, projects);
 app.use("/api/v1/assets", authentication, assets);
 app.use("/api/v1/transactions", authentication, transactions);
 app.use("/api/v1/guests", authentication, guests);
+app.use("/api/v1/rentals", authentication, rentals);
 
 //error handler
 app.use(notFound);
@@ -109,6 +112,9 @@ const start = async () => {
       console.log(`Environment: ${environment}`);
       console.log(`Database host: ${databaseHost}`);
     });
+
+    // Daily rental status-update job (pending -> overdue as due dates pass).
+    startRentalStatusCron();
   } catch (error) {
     console.log(error);
   }

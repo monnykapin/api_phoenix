@@ -1,0 +1,323 @@
+const mongoose = require("mongoose");
+const request = require("supertest");
+const express = require("express");
+
+const Room = require("../models/Room");
+const Tenant = require("../models/Tenant");
+const Rental = require("../models/Rental");
+
+const {
+  computeRentalStatus,
+  daysUntilDue,
+  isDueSoon,
+} = require("../utils/rentalStatus");
+
+const rentalRoutes = require("../routes/rental");
+const errorHandlerMiddleware = require("../middleware/error-handler");
+const db = require("./db");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysFromNow = (days) => new Date(Date.now() + days * DAY_MS);
+
+beforeAll(async () => {
+  await db.connect();
+});
+
+afterAll(async () => {
+  await db.disconnect();
+});
+
+afterEach(async () => {
+  await db.cleanup();
+});
+
+// App factory with mocked auth. Pass a userId so req.user matches test data.
+const createApp = (userId) => {
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => {
+    req.user = { userId: userId || new mongoose.Types.ObjectId(), name: "Test User" };
+    next();
+  });
+  app.use("/api/v1/rentals", rentalRoutes);
+  app.use(errorHandlerMiddleware);
+  return app;
+};
+
+describe("rentalStatus util", () => {
+  it("returns paid when a payment is recorded on/before due date", () => {
+    expect(computeRentalStatus({ paymentDate: daysFromNow(-5), dueDate: daysFromNow(-1) })).toBe("paid");
+  });
+
+  it("returns paid for a late payment", () => {
+    expect(computeRentalStatus({ paymentDate: daysFromNow(2), dueDate: daysFromNow(-1) })).toBe("paid");
+  });
+
+  it("returns overdue when due date passed with no payment", () => {
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(-3) })).toBe("overdue");
+  });
+
+  it("returns pending when not yet due", () => {
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(10) })).toBe("pending");
+  });
+
+  it("computes daysUntilDue correctly", () => {
+    expect(daysUntilDue(daysFromNow(5))).toBe(5);
+    expect(daysUntilDue(daysFromNow(-2))).toBe(-2);
+    expect(daysUntilDue(daysFromNow(0))).toBe(0);
+  });
+
+  it("flags dueSoon only within the 3-day window", () => {
+    expect(isDueSoon(daysFromNow(3))).toBe(true);
+    expect(isDueSoon(daysFromNow(0))).toBe(true);
+    expect(isDueSoon(daysFromNow(4))).toBe(false);
+    expect(isDueSoon(daysFromNow(-1))).toBe(false);
+  });
+});
+
+describe("Rental Model", () => {
+  it("auto-computes paymentStatus on create", async () => {
+    const room = await Room.create({ number: "201" });
+    const tenant = await Tenant.create({ name: "Tenant One" });
+
+    const overdue = await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 500,
+      dueDate: daysFromNow(-1),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+    expect(overdue.paymentStatus).toBe("overdue");
+
+    const paid = await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 500,
+      dueDate: daysFromNow(-1),
+      paymentDate: daysFromNow(-2),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+    expect(paid.paymentStatus).toBe("paid");
+  });
+
+  it("rejects invalid paymentStatus enum", async () => {
+    const room = await Room.create({ number: "202" });
+    const tenant = await Tenant.create({ name: "Tenant Two" });
+
+    await expect(
+      Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 500,
+        dueDate: daysFromNow(1),
+        paymentStatus: "bogus",
+        createdBy: new mongoose.Types.ObjectId(),
+      })
+    ).rejects.toThrow();
+  });
+
+  it("requires required fields", async () => {
+    await expect(Rental.create({})).rejects.toThrow();
+  });
+});
+
+describe("Rental Controller", () => {
+  let app;
+  let room;
+  let tenant;
+  let userId;
+
+  beforeEach(async () => {
+    userId = new mongoose.Types.ObjectId();
+    app = createApp(userId);
+    room = await Room.create({ number: "301" });
+    tenant = await Tenant.create({ name: "Controller Tenant" });
+  });
+
+  describe("POST /api/v1/rentals", () => {
+    it("creates a rental with auto status", async () => {
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 400,
+          dueDate: daysFromNow(-2),
+        })
+        .expect(201);
+
+      expect(res.body.rental.paymentStatus).toBe("overdue");
+      expect(res.body.rental.rentAmount).toBe(400);
+    });
+
+    it("returns 400 when required fields are missing", async () => {
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({ rentAmount: 400 })
+        .expect(400);
+
+      expect(res.body.msg).toBeDefined();
+    });
+  });
+
+  describe("GET /api/v1/rentals", () => {
+    it("filters by status", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 100,
+          dueDate: daysFromNow(-5),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 200,
+          dueDate: daysFromNow(10),
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/rentals?status=overdue")
+        .expect(200);
+
+      expect(res.body.total).toBe(1);
+      expect(res.body.rentals[0].paymentStatus).toBe("overdue");
+    });
+
+    it("returns 400 for an invalid status filter", async () => {
+      await request(app).get("/api/v1/rentals?status=nope").expect(400);
+    });
+  });
+
+  describe("GET /api/v1/rentals/:id/status", () => {
+    it("returns real-time status metadata", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 350,
+        dueDate: daysFromNow(2),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .get(`/api/v1/rentals/${rental._id}/status`)
+        .expect(200);
+
+      expect(res.body.paymentStatus).toBe("pending");
+      expect(res.body.daysUntilDue).toBe(2);
+      expect(res.body.dueSoon).toBe(true);
+    });
+
+    it("returns 404 for unknown rental", async () => {
+      const id = new mongoose.Types.ObjectId();
+      await request(app).get(`/api/v1/rentals/${id}/status`).expect(404);
+    });
+  });
+
+  describe("PUT /api/v1/rentals/:id", () => {
+    it("updates a rental and recomputes status", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}`)
+        .send({ rentAmount: 999 })
+        .expect(200);
+
+      expect(res.body.rental.rentAmount).toBe(999);
+      expect(res.body.rental.paymentStatus).toBe("pending");
+    });
+  });
+
+  describe("POST /api/v1/rentals/:id/payments", () => {
+    it("records a payment and marks the rental paid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({ amount: 400 })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("paid");
+      expect(res.body.rental.paymentDate).toBeDefined();
+      expect(res.body.amountPaid).toBe(400);
+    });
+
+    it("returns 400 for a missing/invalid amount", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({ amount: 0 })
+        .expect(400);
+
+      await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({})
+        .expect(400);
+    });
+  });
+
+  describe("GET /api/v1/rentals/stats", () => {
+    it("returns overview statistics", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 100,
+          dueDate: daysFromNow(-5),
+          paymentDate: daysFromNow(-6),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 200,
+          dueDate: daysFromNow(-2),
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app).get("/api/v1/rentals/stats").expect(200);
+
+      expect(res.body.totalRentals).toBe(2);
+      expect(res.body.paid).toBe(1);
+      expect(res.body.overdue).toBe(1);
+      expect(res.body.expectedRent).toBe(300);
+      expect(res.body.collectedRent).toBe(100);
+      expect(res.body.outstandingRent).toBe(200);
+    });
+  });
+});
