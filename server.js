@@ -25,6 +25,7 @@ const projects = require("./src/routes/project");
 const transactions = require("./src/routes/transaction");
 const guests = require("./src/routes/guest");
 const rentals = require("./src/routes/rental");
+const rooms = require("./src/routes/room");
 const { startRentalStatusCron } = require("./src/jobs/rental-status");
 const { version: appVersion } = require("./package.json");
 
@@ -93,6 +94,7 @@ app.use("/api/v1/assets", authentication, assets);
 app.use("/api/v1/transactions", authentication, transactions);
 app.use("/api/v1/guests", authentication, guests);
 app.use("/api/v1/rentals", authentication, rentals);
+app.use("/api/v1/rooms", authentication, rooms);
 
 //error handler
 app.use(notFound);

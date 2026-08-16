@@ -57,8 +57,14 @@ describe("rentalStatus util", () => {
     expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(-3) })).toBe("overdue");
   });
 
-  it("returns pending when not yet due", () => {
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(10) })).toBe("pending");
+  it("returns paid (prepaid) when more than 3 days before due with no payment", () => {
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(10) })).toBe("paid");
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(4) })).toBe("paid");
+  });
+
+  it("returns pending within 3 days before the due date", () => {
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(3) })).toBe("pending");
+    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(0) })).toBe("pending");
   });
 
   it("computes daysUntilDue correctly", () => {
@@ -196,6 +202,91 @@ describe("Rental Controller", () => {
     it("returns 400 for an invalid status filter", async () => {
       await request(app).get("/api/v1/rentals?status=nope").expect(400);
     });
+
+    it("filters by month including rentals still active from earlier months", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 0, 15), // moved in January, still renting
+          rentAmount: 100,
+          dueDate: new Date(2026, 1, 15),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 10), // moved in February
+          rentAmount: 200,
+          dueDate: new Date(2026, 2, 10),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 2, 1), // moved in March (not active in Feb)
+          rentAmount: 300,
+          dueDate: new Date(2026, 3, 1),
+          createdBy: userId,
+        },
+      ]);
+
+      const feb = await request(app)
+        .get("/api/v1/rentals?month=2026-02")
+        .expect(200);
+
+      // January tenant is still renting, so it should appear in February too.
+      expect(feb.body.total).toBe(2);
+      expect(feb.body.rentals.map((r) => r.rentAmount).sort()).toEqual([100, 200]);
+    });
+
+    it("returns 400 for an invalid month filter", async () => {
+      await request(app).get("/api/v1/rentals?month=2026-13").expect(400);
+      await request(app).get("/api/v1/rentals?month=bad").expect(400);
+    });
+
+    it("includes stats scoped to the same filters", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 1),
+          rentAmount: 100,
+          dueDate: new Date(2026, 2, 1),
+          paymentDate: new Date(2026, 1, 20),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 10),
+          rentAmount: 200,
+          dueDate: new Date(2026, 2, 10),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 2, 1),
+          rentAmount: 400,
+          dueDate: new Date(2026, 3, 1),
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/rentals?month=2026-02")
+        .expect(200);
+
+      expect(res.body.total).toBe(2);
+      expect(res.body.stats.totalRentals).toBe(2);
+      expect(res.body.stats.paid).toBe(1);
+      expect(res.body.stats.pending).toBe(0);
+      expect(res.body.stats.overdue).toBe(1);
+      expect(res.body.stats.expectedRent).toBe(300);
+      expect(res.body.stats.collectedRent).toBe(100);
+      expect(res.body.stats.outstandingRent).toBe(200);
+    });
   });
 
   describe("GET /api/v1/rentals/:id/status", () => {
@@ -241,7 +332,7 @@ describe("Rental Controller", () => {
         .expect(200);
 
       expect(res.body.rental.rentAmount).toBe(999);
-      expect(res.body.rental.paymentStatus).toBe("pending");
+      expect(res.body.rental.paymentStatus).toBe("paid"); // prepaid (due in 5 days)
     });
   });
 
@@ -318,6 +409,48 @@ describe("Rental Controller", () => {
       expect(res.body.expectedRent).toBe(300);
       expect(res.body.collectedRent).toBe(100);
       expect(res.body.outstandingRent).toBe(200);
+    });
+
+    it("scopes stats to a single month", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 1),
+          rentAmount: 100,
+          dueDate: new Date(2026, 2, 1),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 15),
+          rentAmount: 200,
+          dueDate: new Date(2026, 2, 15),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 2, 1),
+          rentAmount: 400,
+          dueDate: new Date(2026, 3, 1),
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/rentals/stats?month=2026-02")
+        .expect(200);
+
+      expect(res.body.totalRentals).toBe(2);
+      expect(res.body.expectedRent).toBe(300);
+      expect(res.body.collectedRent).toBe(0);
+      expect(res.body.outstandingRent).toBe(300);
+    });
+
+    it("returns 400 for an invalid month on stats", async () => {
+      await request(app).get("/api/v1/rentals/stats?month=bad").expect(400);
     });
   });
 });

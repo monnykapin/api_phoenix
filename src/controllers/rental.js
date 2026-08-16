@@ -1,4 +1,5 @@
 const Rental = require("../models/Rental");
+const Room = require("../models/Room");
 const asyncWrapper = require("../middleware/async");
 const { createCustomError } = require("../error/custom-error");
 const {
@@ -6,6 +7,75 @@ const {
   daysUntilDue,
   isDueSoon,
 } = require("../utils/rentalStatus");
+const { isActiveInWindow } = require("../utils/roomStatus");
+const { monthRange } = require("../utils/month");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Recompute a room's stored status ("rented" when it has an active rental
+// today, otherwise "available") so it stays in sync with its rentals.
+const refreshRoomStatus = async (roomId) => {
+  const now = new Date();
+  const end = new Date(now.getTime() + DAY_MS);
+  const rentals = await Rental.find({ roomId });
+  const rented = rentals.some((r) => isActiveInWindow(r, now, end));
+
+  await Room.findByIdAndUpdate(roomId, {
+    status: rented ? "rented" : "available",
+  });
+
+  return rented ? "rented" : "available";
+};
+
+// Compute the overview stats (counts + rent totals) for a given Mongo filter.
+const computeStats = async (filter) => {
+  const totalRentals = await Rental.countDocuments(filter);
+  const paid = await Rental.countDocuments({ ...filter, paymentStatus: "paid" });
+  const pending = await Rental.countDocuments({
+    ...filter,
+    paymentStatus: "pending",
+  });
+  const overdue = await Rental.countDocuments({
+    ...filter,
+    paymentStatus: "overdue",
+  });
+
+  const rentals = await Rental.find(filter).select(
+    "rentAmount paymentDate paymentStatus"
+  );
+  const expectedRent = rentals.reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+  const collectedRent = rentals
+    .filter((r) => r.paymentStatus === "paid")
+    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+  const outstandingRent = rentals
+    .filter((r) => r.paymentStatus !== "paid")
+    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+
+  return {
+    totalRentals,
+    paid,
+    pending,
+    overdue,
+    expectedRent,
+    collectedRent,
+    outstandingRent,
+  };
+};
+
+// Apply an "active in month" filter: rentals whose stay overlaps the month
+// (moved in before it ends and not moved out before it starts). Returns false
+// when the month string is invalid.
+const applyMonthFilter = (filter, month) => {
+  const range = monthRange(month);
+  if (!range) return false;
+
+  filter.moveInDate = { $lt: range.end };
+  filter.$or = [
+    { moveOutDate: null },
+    { moveOutDate: { $gte: range.start } },
+  ];
+  return true;
+};
 
 // Create a rental; status is auto-computed by the model pre-save hook.
 const createRental = asyncWrapper(async (req, res, next) => {
@@ -22,6 +92,10 @@ const createRental = asyncWrapper(async (req, res, next) => {
 
   req.body.createdBy = req.user.userId;
   const rental = await Rental.create(req.body);
+
+  // The room is now occupied.
+  await Room.findByIdAndUpdate(roomId, { status: "rented" });
+
   res.status(201).json({ rental });
 });
 
@@ -42,6 +116,14 @@ const getAllRentals = asyncWrapper(async (req, res, next) => {
     filter.paymentStatus = status;
   }
 
+  // Optional month filter (YYYY-MM): rentals active during that month
+  // (moved in before it ends and not moved out before it starts).
+  if (req.query.month) {
+    if (!applyMonthFilter(filter, req.query.month)) {
+      return next(createCustomError("month must be in YYYY-MM format", 400));
+    }
+  }
+
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = parseInt(req.query.offset, 10) || 0;
 
@@ -53,8 +135,9 @@ const getAllRentals = asyncWrapper(async (req, res, next) => {
     .skip(offset);
 
   const total = await Rental.countDocuments(filter);
+  const stats = await computeStats(filter);
 
-  res.status(200).json({ rentals, total, limit, offset });
+  res.status(200).json({ rentals, total, limit, offset, stats });
 });
 
 // Single rental with populated references.
@@ -123,6 +206,10 @@ const updateRental = asyncWrapper(async (req, res, next) => {
 
   // The pre-save hook recomputes paymentStatus automatically.
   await rental.save();
+
+  // A move-in/out change can flip the room's availability.
+  await refreshRoomStatus(rental.roomId);
+
   res.status(200).json({ rental });
 });
 
@@ -166,44 +253,26 @@ const deleteRental = asyncWrapper(async (req, res, next) => {
     return next(createCustomError(`No rental found with id: ${rentalId}`, 404));
   }
 
+  // The room may now be available again.
+  await refreshRoomStatus(rental.roomId);
+
   res.status(200).json({ rental });
 });
 
-// Dashboard overview stats.
-const getRentalStats = asyncWrapper(async (req, res) => {
+// Dashboard overview stats, optionally scoped to a single month (YYYY-MM)
+// via the move-in date.
+const getRentalStats = asyncWrapper(async (req, res, next) => {
   const baseFilter = { createdBy: req.user.userId };
 
-  const totalRentals = await Rental.countDocuments(baseFilter);
-  const paid = await Rental.countDocuments({ ...baseFilter, paymentStatus: "paid" });
-  const pending = await Rental.countDocuments({
-    ...baseFilter,
-    paymentStatus: "pending",
-  });
-  const overdue = await Rental.countDocuments({
-    ...baseFilter,
-    paymentStatus: "overdue",
-  });
+  if (req.query.month) {
+    if (!applyMonthFilter(baseFilter, req.query.month)) {
+      return next(createCustomError("month must be in YYYY-MM format", 400));
+    }
+  }
 
-  const rentals = await Rental.find(baseFilter).select(
-    "rentAmount paymentDate paymentStatus"
-  );
-  const expectedRent = rentals.reduce((sum, r) => sum + (r.rentAmount || 0), 0);
-  const collectedRent = rentals
-    .filter((r) => r.paymentStatus === "paid")
-    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
-  const outstandingRent = rentals
-    .filter((r) => r.paymentStatus !== "paid")
-    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+  const stats = await computeStats(baseFilter);
 
-  res.status(200).json({
-    totalRentals,
-    paid,
-    pending,
-    overdue,
-    expectedRent,
-    collectedRent,
-    outstandingRent,
-  });
+  res.status(200).json(stats);
 });
 
 module.exports = {
