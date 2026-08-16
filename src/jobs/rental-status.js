@@ -1,9 +1,11 @@
 /**
  * Daily status-update job.
  *
- * Recomputes the paymentStatus of all non-paid rentals so that "pending"
- * rentals flip to "overdue" as their due date passes. Paid rentals are skipped
- * (their status only changes when a payment/refund is recorded).
+ * Recomputes the paymentStatus of every rental that has not recorded a payment
+ * (paymentDate is null). These are the only rentals whose status changes over
+ * time: a prepaid "paid" flips to "pending" as the due date approaches (3 days
+ * out) and then to "overdue" once the due date passes. Rentals with a recorded
+ * payment stay "paid" and are skipped.
  *
  * Uses a simple setInterval scheduler (no extra dependency). The same function
  * is exported for direct invocation/tests.
@@ -15,7 +17,7 @@ const { computeRentalStatus } = require("../utils/rentalStatus");
 const DAILY_MS = 24 * 60 * 60 * 1000;
 
 const updateRentalStatuses = async () => {
-  const rentals = await Rental.find({ paymentStatus: { $ne: "paid" } });
+  const rentals = await Rental.find({ paymentDate: null });
 
   let updated = 0;
   for (const rental of rentals) {

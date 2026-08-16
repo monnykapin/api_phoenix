@@ -1,13 +1,13 @@
 /**
  * Shared rental payment-status logic.
  *
- * Status rules:
- *  - "paid"     -> a payment has been recorded (paymentDate set). On-time when
- *                  paymentDate <= dueDate; a late payment still resolves to "paid"
- *                  because there is no dedicated "late" state.
+ * Status rules (prepaid model — rent is paid in advance on move-in):
+ *  - "paid"     -> a payment has been recorded (paymentDate set), OR the rent is
+ *                  prepaid: no payment recorded but today is more than 3 days
+ *                  before the due date.
+ *  - "pending"  -> no payment recorded AND today is within 3 days before the due
+ *                  date (the "due soon" window, including due today).
  *  - "overdue"  -> no payment recorded AND today is after the due date.
- *  - "pending"  -> no payment recorded AND today is on/before the due date.
- *                  This includes the "due soon" window of up to 3 days before due.
  *
  * All comparisons are done at day granularity so a due date behaves as a
  * calendar day rather than an exact timestamp.
@@ -43,18 +43,22 @@ const isDueSoon = (dueDate, today = new Date()) => {
  * `paymentDate` and `dueDate`).
  */
 const computeRentalStatus = (rental, today = new Date()) => {
-  const dueTime = toDay(rental.dueDate).getTime();
-  const todayTime = toDay(today).getTime();
-
   if (rental.paymentDate) {
     return "paid";
   }
 
-  if (todayTime > dueTime) {
+  const days = daysUntilDue(rental.dueDate, today);
+
+  if (days < 0) {
     return "overdue";
   }
 
-  return "pending";
+  // Prepaid rent: still "paid" until the "due soon" window (3 days before due).
+  if (days <= 3) {
+    return "pending";
+  }
+
+  return "paid";
 };
 
 module.exports = {
