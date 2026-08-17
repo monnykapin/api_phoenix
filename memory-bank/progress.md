@@ -7,18 +7,25 @@
   - Month filter (`?month=YYYY-MM`, "active during month" overlap semantics).
   - Payment status: prepaid model (paid → pending 3 days before due → overdue).
   - Stats (list + inline `stats` in `GET /rentals`; standalone `/stats`).
+   - **Overlap guard**: `POST /rentals` and `PUT /rentals/:id` reject (409) when the requested stay overlaps an existing rental for the same room (`findOverlappingRental`). Day-granularity with the move-out day still occupied, so same-day move-in is rejected (new tenant moves in the day after move-out).
+
 - **Rooms**:
   - `GET /api/v1/rooms` (computed available/rented status; `?month=` and `?status=` filters).
   - `POST /api/v1/rooms` (create, requires `number`).
+  - `PUT /api/v1/rooms/:id` (update `number`/`description`; `status` not editable — derived from rentals).
+  - `DELETE /api/v1/rooms/:id`.
   - Room status auto-synced from rentals on create/update/delete.
-- Daily cron for status updates.
+- Daily cron for status updates (rental payment status + room availability):
+  - `services/roomStatus.js` holds `refreshRoomStatus` + `syncAllRoomsStatus`.
+  - Cron runs `syncAllRoomsStatus` so a room flips to `available` when its last rental's move-out date passes.
+- **Telegram payment-status alert** (daily cron): reports which rooms are `pending` and `overdue` to Telegram via `services/paymentReport.js` + `services/telegram.js`. Sent at `REPORT_HOUR` (default 09:00 local) and only when there are pending/overdue rooms. Needs `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`; skipped if unset or nothing to report.
 
 ## What's left to build
-- Full room CRUD (GET/:id, PUT, DELETE) — offered, not yet requested.
+- Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
 - Tenant management endpoints (Tenant model exists; no dedicated route/controller seen).
 
 ## Current status
-- All tests green: 139 passing across 6 suites.
+- All tests green: 163 passing across 8 suites.
 
 ## Known issues / caveats
 - **Timezone**: month boundaries use server-local time. Boundary edge cases at month start/end could shift a rental into the wrong month if server TZ differs from data intent. Fix by making `monthRange` UTC if needed.

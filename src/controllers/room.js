@@ -73,4 +73,39 @@ const createRoom = asyncWrapper(async (req, res, next) => {
   res.status(201).json({ room });
 });
 
-module.exports = { getAllRooms, createRoom };
+// Update a room's editable fields. `status` is intentionally not updatable
+// here because it is derived from rentals (see getAllRooms / rental controller).
+const updateRoom = asyncWrapper(async (req, res, next) => {
+  const { id: roomId } = req.params;
+
+  const allowed = ["number", "description"];
+
+  const room = await Room.findById(roomId);
+  if (!room) {
+    return next(createCustomError(`No room found with id: ${roomId}`, 404));
+  }
+
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      room[key] = req.body[key];
+    }
+  }
+
+  await room.save();
+
+  res.status(200).json({ room });
+});
+
+// Delete a room.
+const deleteRoom = asyncWrapper(async (req, res, next) => {
+  const { id: roomId } = req.params;
+  const room = await Room.findByIdAndDelete(roomId);
+
+  if (!room) {
+    return next(createCustomError(`No room found with id: ${roomId}`, 404));
+  }
+
+  res.status(200).json({ room });
+});
+
+module.exports = { getAllRooms, createRoom, updateRoom, deleteRoom };

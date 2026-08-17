@@ -6,26 +6,10 @@ const {
   computeRentalStatus,
   daysUntilDue,
   isDueSoon,
+  toDay,
 } = require("../utils/rentalStatus");
-const { isActiveInWindow } = require("../utils/roomStatus");
 const { monthRange } = require("../utils/month");
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Recompute a room's stored status ("rented" when it has an active rental
-// today, otherwise "available") so it stays in sync with its rentals.
-const refreshRoomStatus = async (roomId) => {
-  const now = new Date();
-  const end = new Date(now.getTime() + DAY_MS);
-  const rentals = await Rental.find({ roomId });
-  const rented = rentals.some((r) => isActiveInWindow(r, now, end));
-
-  await Room.findByIdAndUpdate(roomId, {
-    status: rented ? "rented" : "available",
-  });
-
-  return rented ? "rented" : "available";
-};
+const { refreshRoomStatus } = require("../services/roomStatus");
 
 // Compute the overview stats (counts + rent totals) for a given Mongo filter.
 const computeStats = async (filter) => {
@@ -77,6 +61,37 @@ const applyMonthFilter = (filter, month) => {
   return true;
 };
 
+// Find an existing rental for the same room whose stay overlaps the requested
+// [moveInDate, moveOutDate] window. Comparison is at day granularity and the
+// move-out day is still considered occupied, so a move-in on the same day as
+// another rental's move-out counts as an overlap (and is rejected). `excludeId`
+// skips a rental (used when updating it).
+const findOverlappingRental = ({
+  roomId,
+  moveInDate,
+  moveOutDate,
+  excludeId,
+}) => {
+  const query = { roomId };
+  if (excludeId) query._id = { $ne: excludeId };
+
+  // Existing rental starts on/before the requested move-out day. No upper
+  // bound when the requested stay is open-ended (no move-out date).
+  if (moveOutDate) {
+    const afterMoveOut = toDay(moveOutDate);
+    afterMoveOut.setDate(afterMoveOut.getDate() + 1);
+    query.moveInDate = { $lt: afterMoveOut };
+  }
+
+  // Existing rental is still occupying on/after the requested move-in day.
+  query.$or = [
+    { moveOutDate: null },
+    { moveOutDate: { $gte: toDay(moveInDate) } },
+  ];
+
+  return Rental.findOne(query);
+};
+
 // Create a rental; status is auto-computed by the model pre-save hook.
 const createRental = asyncWrapper(async (req, res, next) => {
   const { roomId, moveInDate, rentAmount, dueDate } = req.body;
@@ -87,6 +102,19 @@ const createRental = asyncWrapper(async (req, res, next) => {
         "roomId, moveInDate, rentAmount and dueDate are required",
         400
       )
+    );
+  }
+
+  // Reject if the requested stay overlaps an existing rental for this room
+  // (the room must be available for the requested dates).
+  const overlap = await findOverlappingRental({
+    roomId,
+    moveInDate,
+    moveOutDate: req.body.moveOutDate,
+  });
+  if (overlap) {
+    return next(
+      createCustomError("This room is not available for the requested dates", 409)
     );
   }
 
@@ -202,6 +230,19 @@ const updateRental = asyncWrapper(async (req, res, next) => {
     if (req.body[key] !== undefined) {
       rental[key] = req.body[key];
     }
+  }
+
+  // Reject if the updated stay would overlap another rental for its room.
+  const overlap = await findOverlappingRental({
+    roomId: rental.roomId,
+    moveInDate: rental.moveInDate,
+    moveOutDate: rental.moveOutDate,
+    excludeId: rental._id,
+  });
+  if (overlap) {
+    return next(
+      createCustomError("This room is not available for the requested dates", 409)
+    );
   }
 
   // The pre-save hook recomputes paymentStatus automatically.
