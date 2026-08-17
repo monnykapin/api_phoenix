@@ -168,6 +168,20 @@ describe("Rental Controller", () => {
 
       expect(res.body.msg).toBeDefined();
     });
+
+    it("creates a rental without a tenant", async () => {
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(-30),
+          rentAmount: 400,
+          dueDate: daysFromNow(10),
+        })
+        .expect(201);
+
+      expect(res.body.rental.tenantId).toBeNull();
+    });
   });
 
   describe("GET /api/v1/rentals", () => {
