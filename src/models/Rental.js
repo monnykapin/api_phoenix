@@ -16,7 +16,7 @@ const RentalSchema = new mongoose.Schema(
     tenantId: {
       type: mongoose.Types.ObjectId,
       ref: "Tenant",
-      required: [true, "Please provide tenant"],
+      default: null,
     },
     moveInDate: {
       type: Date,

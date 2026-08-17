@@ -79,12 +79,12 @@ const applyMonthFilter = (filter, month) => {
 
 // Create a rental; status is auto-computed by the model pre-save hook.
 const createRental = asyncWrapper(async (req, res, next) => {
-  const { roomId, tenantId, moveInDate, rentAmount, dueDate } = req.body;
+  const { roomId, moveInDate, rentAmount, dueDate } = req.body;
 
-  if (!roomId || !tenantId || !moveInDate || !rentAmount || !dueDate) {
+  if (!roomId || !moveInDate || !rentAmount || !dueDate) {
     return next(
       createCustomError(
-        "roomId, tenantId, moveInDate, rentAmount and dueDate are required",
+        "roomId, moveInDate, rentAmount and dueDate are required",
         400
       )
     );
