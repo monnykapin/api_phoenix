@@ -115,7 +115,7 @@ const start = async () => {
       console.log(`Database host: ${databaseHost}`);
     });
 
-    // Daily rental status-update job (pending -> overdue as due dates pass).
+    // Daily job: sync rental/room statuses + send Telegram payment alert at REPORT_HOUR.
     startRentalStatusCron();
   } catch (error) {
     console.log(error);

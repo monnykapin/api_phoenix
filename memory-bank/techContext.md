@@ -19,7 +19,8 @@ src/
   middleware/             # async, authentication, error-handler, not-found
   error/                  # custom error classes (custom-api, custom-error, bad-request, not-found, unauthenticated)
   utils/                  # month.js, rentalStatus.js, roomStatus.js
-  jobs/                   # rental-status.js (daily cron)
+  services/               # roomStatus.js (DB-aware room status sync), telegram.js, paymentReport.js
+  jobs/                   # rental-status.js (daily cron + Telegram alert)
   seed/seed.js            # sample data seeder
   __tests__/              # Jest tests + db.js (mongodb-memory-server helper)
 ```
@@ -34,10 +35,10 @@ src/
 ## Testing
 - **Jest** with `mongodb-memory-server` (in-memory Mongo), `supertest` for HTTP.
 - Tests build an Express app with mocked `req.user` (`createApp(userId)`).
-- Run: `npx jest --runInBand` (139 tests currently passing).
+- Run: `npx jest --runInBand` (163 tests currently passing).
 
 ## Environment variables (src/config/.env)
-`PORT`, `MONGOURL`, `DBNAME`, `DBUSER`, `DBPASS`, `DBAUTHMECHANISM`, `JWT_SECRET`, `JWT_LIFETIME`, `GITHUB_CLIENT_ID/SECRET/CALLBACK_URL`, `SESSION_SECRET`, `REFRESH_TOKEN_SECRET/LIFETIME`, `NODE_ENV`.
+`PORT`, `MONGOURL`, `DBNAME`, `DBUSER`, `DBPASS`, `DBAUTHMECHANISM`, `JWT_SECRET`, `JWT_LIFETIME`, `GITHUB_CLIENT_ID/SECRET/CALLBACK_URL`, `SESSION_SECRET`, `REFRESH_TOKEN_SECRET/LIFETIME`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REPORT_HOUR` (default 9), `NODE_ENV`.
 
 ## Constraints / notes
 - Mongoose 6 deprecation warning about `strictQuery` (non-blocking).

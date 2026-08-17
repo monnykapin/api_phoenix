@@ -182,6 +182,130 @@ describe("Rental Controller", () => {
 
       expect(res.body.rental.tenantId).toBeNull();
     });
+
+    it("rejects a new rental when the room already has an active rental", async () => {
+      // Existing tenant still occupying (no move-out date).
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(10),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(0),
+          rentAmount: 500,
+          dueDate: daysFromNow(30),
+        })
+        .expect(409);
+
+      expect(res.body.msg).toContain("not available");
+    });
+
+    it("rejects a same-day move-in when the previous tenant moved out today", async () => {
+      // Previous tenant moved out today (still occupies today at day granularity).
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        moveOutDate: daysFromNow(0),
+        rentAmount: 400,
+        dueDate: daysFromNow(-1),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(0),
+          rentAmount: 500,
+          dueDate: daysFromNow(30),
+        })
+        .expect(409);
+
+      expect(res.body.msg).toContain("not available");
+    });
+
+    it("allows a move-in the day after the previous tenant moved out", async () => {
+      // Previous tenant moved out today.
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        moveOutDate: daysFromNow(0),
+        rentAmount: 400,
+        dueDate: daysFromNow(-1),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(1),
+          rentAmount: 500,
+          dueDate: daysFromNow(30),
+        })
+        .expect(201);
+
+      expect(res.body.rental.paymentStatus).toBe("paid"); // prepaid, far from due
+    });
+
+    it("allows a future rental that does not overlap an existing stay", async () => {
+      // Existing tenant moves out in 10 days.
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        moveOutDate: daysFromNow(10),
+        rentAmount: 400,
+        dueDate: daysFromNow(-1),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(11),
+          rentAmount: 500,
+          dueDate: daysFromNow(40),
+        })
+        .expect(201);
+
+      expect(res.body.rental.rentAmount).toBe(500);
+    });
+
+    it("rejects a future rental that overlaps an existing stay", async () => {
+      // Existing tenant moves out in 10 days.
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        moveOutDate: daysFromNow(10),
+        rentAmount: 400,
+        dueDate: daysFromNow(-1),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          moveInDate: daysFromNow(5),
+          rentAmount: 500,
+          dueDate: daysFromNow(30),
+        })
+        .expect(409);
+
+      expect(res.body.msg).toContain("not available");
+    });
   });
 
   describe("GET /api/v1/rentals", () => {

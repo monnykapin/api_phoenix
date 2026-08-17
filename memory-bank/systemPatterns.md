@@ -20,7 +20,8 @@ Single Node.js/Express backend (modular monolith), layered as:
   - `rentalStatus.js` — `computeRentalStatus`, `daysUntilDue`, `isDueSoon`, `toDay` (day-granularity).
   - `roomStatus.js` — `isActiveInWindow` (does a rental overlap [start,end)).
   - `month.js` — `monthRange("YYYY-MM")` → `{ start, end }`.
-- **Jobs**: `jobs/rental-status.js` runs a daily cron (`setInterval`, `unref`) to recompute statuses for `paymentDate: null` rentals.
+- **Jobs**: `jobs/rental-status.js` runs a daily cron (re-scheduling `setTimeout` targeting `REPORT_HOUR`, default 09:00 local) to recompute rental payment statuses (`paymentDate: null`), sync all room statuses (`syncAllRoomsStatus`), and send a Telegram payment-status alert (`reportPaymentStatus`). Status sync also runs once on startup without sending the alert.
+- **Services**: DB-aware business logic kept separate from pure `utils/`: `roomStatus.js` (room status sync), `telegram.js` (Bot API `sendMessage` via built-in `fetch`), `paymentReport.js` (collect/format/send pending + overdue rooms).
 
 ## Critical implementation paths
 - **Payment status**: `computeRentalStatus` is the single source of truth (prepaid model). Used by model hook, `GET /rentals/:id/status`, `recordPayment`, and the cron.
