@@ -425,6 +425,37 @@ describe("Rental Controller", () => {
       expect(res.body.stats.collectedRent).toBe(100);
       expect(res.body.stats.outstandingRent).toBe(200);
     });
+
+    it("returns allTimeCollect regardless of the month filter", async () => {
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 0, 5),
+          rentAmount: 100,
+          dueDate: new Date(2026, 0, 1),
+          paymentDate: new Date(2026, 0, 2),
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: new Date(2026, 1, 5),
+          rentAmount: 200,
+          dueDate: new Date(2026, 1, 1),
+          paymentDate: new Date(2026, 1, 2),
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/rentals?month=2026-01")
+        .expect(200);
+
+      // January-only collected rent is 100, but the all-time total is 300.
+      expect(res.body.stats.collectedRent).toBe(100);
+      expect(res.body.stats.allTimeCollect).toBe(300);
+    });
   });
 
   describe("GET /api/v1/rentals/:id/status", () => {
@@ -495,7 +526,7 @@ describe("Rental Controller", () => {
       expect(res.body.amountPaid).toBe(400);
     });
 
-    it("returns 400 for a missing/invalid amount", async () => {
+    it("returns 400 for an invalid (non-positive) amount", async () => {
       const rental = await Rental.create({
         roomId: room._id,
         tenantId: tenant._id,
@@ -512,8 +543,46 @@ describe("Rental Controller", () => {
 
       await request(app)
         .post(`/api/v1/rentals/${rental._id}/payments`)
-        .send({})
+        .send({ amount: -5 })
         .expect(400);
+    });
+
+    it("defaults to the rental's amount when the body is empty", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({})
+        .expect(200);
+
+      expect(res.body.amountPaid).toBe(400);
+      expect(res.body.rental.paymentStatus).toBe("paid");
+    });
+
+    it("defaults to the rental's amount when amount is null", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({ amount: null })
+        .expect(200);
+
+      expect(res.body.amountPaid).toBe(400);
+      expect(res.body.rental.paymentStatus).toBe("paid");
     });
   });
 

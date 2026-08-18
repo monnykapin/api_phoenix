@@ -2,29 +2,34 @@
  * Room payment-status report.
  *
  * Collects the rentals whose paymentStatus is "pending" or "overdue", groups
- * them by room (and tenant), formats a human-readable summary, and sends it as
- * a Telegram alert. Used by the daily cron.
+ * them by room, formats a human-readable summary, and sends it as a Telegram
+ * alert. Used by the daily cron.
  */
 
 const Rental = require("../models/Rental");
 const { sendTelegramMessage } = require("./telegram");
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Link shown in the alert footer.
+const ADMIN_URL = process.env.ADMIN_URL || "https://admin.monnykapin.com";
+
 const formatDate = (value) => {
   if (!value) return "—";
   const d = new Date(value);
-  const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
+  return `${day} ${MONTHS[d.getMonth()]}, ${d.getFullYear()}`;
 };
 
 // Fetch pending/overdue rentals, grouped into { overdue: [...], pending: [...] }
-// where each entry is { room, tenant, dueDate, rentAmount }.
+// where each entry is { room, dueDate }.
 const getPaymentStatusReport = async () => {
   const rentals = await Rental.find({
     paymentStatus: { $in: ["pending", "overdue"] },
-  })
-    .populate("roomId", "number")
-    .populate("tenantId", "name");
+  }).populate("roomId", "number");
 
   const overdue = [];
   const pending = [];
@@ -32,9 +37,7 @@ const getPaymentStatusReport = async () => {
   for (const rental of rentals) {
     const item = {
       room: rental.roomId ? rental.roomId.number : "Unknown",
-      tenant: rental.tenantId ? rental.tenantId.name : "—",
       dueDate: rental.dueDate,
-      rentAmount: rental.rentAmount,
     };
 
     if (rental.paymentStatus === "overdue") overdue.push(item);
@@ -48,29 +51,38 @@ const getPaymentStatusReport = async () => {
   return { overdue, pending };
 };
 
-// Format the report into a Telegram message (plain text with emoji).
+// Format the report into a Telegram message matching the expected layout:
+//
+//   Room Payment Status Alert:
+//
+//   ==== Overdue ====
+//   -Room 1 [01 Aug, 2026]
+//
+//   ==== Pending ====
+//   -Room 2 [01 Aug, 2026]
+//
+//   More Details: https://admin.monnykapin.com
 const buildPaymentStatusMessage = ({ overdue = [], pending = [] }) => {
-  const lines = ["📊 Room Payment Status Alert"];
+  const lines = ["Room Payment Status Alert:"];
 
   if (overdue.length) {
     lines.push("");
-    lines.push(`⚠️ Overdue (${overdue.length}):`);
+    lines.push("==== Overdue ====");
     for (const r of overdue) {
-      lines.push(
-        `  • Room ${r.room} — ${r.tenant} — due ${formatDate(r.dueDate)} — ${r.rentAmount}`
-      );
+      lines.push(`-Room ${r.room} [${formatDate(r.dueDate)}]`);
     }
   }
 
   if (pending.length) {
     lines.push("");
-    lines.push(`⏳ Pending (${pending.length}):`);
+    lines.push("==== Pending ====");
     for (const r of pending) {
-      lines.push(
-        `  • Room ${r.room} — ${r.tenant} — due ${formatDate(r.dueDate)} — ${r.rentAmount}`
-      );
+      lines.push(`-Room ${r.room} [${formatDate(r.dueDate)}]`);
     }
   }
+
+  lines.push("");
+  lines.push(`More Details: ${ADMIN_URL}`);
 
   return lines.join("\n");
 };

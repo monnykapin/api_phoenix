@@ -19,7 +19,11 @@ Rental + Room feature (recently built out in this session).
 
 8. **Overlap guard (no double-booking)** — `createRental` and `updateRental` reject (409) when the requested stay overlaps an existing rental for the same room. Implemented via `findOverlappingRental({ roomId, moveInDate, moveOutDate, excludeId })` in `controllers/rental.js`, which compares at day granularity where the move-out day is still considered occupied (so a move-in on the same day as another tenant's move-out is rejected; the new tenant moves in the day after). This effectively enforces "only rent when the room is available for the requested dates".
 
-9. **Telegram payment-status alert** — added `services/telegram.js` (`sendTelegramMessage`, uses built-in `fetch`) and `services/paymentReport.js` (`getPaymentStatusReport`, `buildPaymentStatusMessage`, `reportPaymentStatus`). The cron reports which rooms are `pending` and which are `overdue` to Telegram, sent only at `REPORT_HOUR` (default 09:00 local) and only when there are pending/overdue rooms. Status sync still runs on startup without sending the report. Configured via `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`.
+9. **Telegram payment-status alert** — added `services/telegram.js` (`sendTelegramMessage`, uses built-in `fetch`) and `services/paymentReport.js` (`getPaymentStatusReport`, `buildPaymentStatusMessage`, `reportPaymentStatus`). The cron reports which rooms are `pending` and which are `overdue` to Telegram, sent only at `REPORT_HOUR` (default 09:00 local) and only when there are pending/overdue rooms. Status sync still runs on startup without sending the report. Message format: `Room Payment Status Alert:` → `==== Overdue ====` / `==== Pending ====` with `-Room N [DD Mon, YYYY]` lines → `More Details: {ADMIN_URL}`. Configured via `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` / `ADMIN_URL`.
+
+10. **Payment endpoint amount default** — `POST /rentals/:id/payments` now accepts an empty body or `null`/empty `amount`, defaulting to the rental's `rentAmount`; still 400s for a non-positive explicit amount.
+
+11. **`allTimeCollect` stat** — `stats.allTimeCollect` added to `GET /rentals` (and `/rentals/stats`) = total rent collected across all time (scoped only by `createdBy`, ignoring `?month`/`?status`).
 
 ## Next steps / decisions
 - Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
