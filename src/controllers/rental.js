@@ -35,6 +35,15 @@ const computeStats = async (filter) => {
     .filter((r) => r.paymentStatus !== "paid")
     .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
 
+  // Total collected across all of this user's rentals, ignoring the current
+  // month/status filter (i.e. "all time").
+  const allTimeCollect = await Rental.find({
+    createdBy: filter.createdBy,
+    paymentStatus: "paid",
+  })
+    .select("rentAmount")
+    .then((all) => all.reduce((sum, r) => sum + (r.rentAmount || 0), 0));
+
   return {
     totalRentals,
     paid,
@@ -43,6 +52,7 @@ const computeStats = async (filter) => {
     expectedRent,
     collectedRent,
     outstandingRent,
+    allTimeCollect,
   };
 };
 
@@ -254,23 +264,24 @@ const updateRental = asyncWrapper(async (req, res, next) => {
   res.status(200).json({ rental });
 });
 
-// Record a payment. Marks the rental as paid via the pre-save hook.
+// Record a payment. Marks the rental as paid via the pre-save hook. When no
+// amount is provided (empty body or null amount), it defaults to the rental's
+// recorded rentAmount.
 const recordPayment = asyncWrapper(async (req, res, next) => {
   const { id: rentalId } = req.params;
   const { amount, paymentDate } = req.body;
 
-  if (amount === undefined || amount === null || amount === "") {
-    return next(createCustomError("Please provide payment amount", 400));
-  }
-
-  const amountNumber = Number(amount);
-  if (Number.isNaN(amountNumber) || amountNumber <= 0) {
-    return next(createCustomError("Payment amount must be a positive number", 400));
-  }
-
   const rental = await Rental.findById(rentalId);
   if (!rental) {
     return next(createCustomError(`No rental found with id: ${rentalId}`, 404));
+  }
+
+  // Default to the rental's recorded amount when none is provided.
+  const hasAmount = amount !== undefined && amount !== null && amount !== "";
+  const amountNumber = hasAmount ? Number(amount) : Number(rental.rentAmount);
+
+  if (Number.isNaN(amountNumber) || amountNumber <= 0) {
+    return next(createCustomError("Payment amount must be a positive number", 400));
   }
 
   rental.paymentDate = paymentDate ? new Date(paymentDate) : new Date();

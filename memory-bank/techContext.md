@@ -38,7 +38,7 @@ src/
 - Run: `npx jest --runInBand` (163 tests currently passing).
 
 ## Environment variables (src/config/.env)
-`PORT`, `MONGOURL`, `DBNAME`, `DBUSER`, `DBPASS`, `DBAUTHMECHANISM`, `JWT_SECRET`, `JWT_LIFETIME`, `GITHUB_CLIENT_ID/SECRET/CALLBACK_URL`, `SESSION_SECRET`, `REFRESH_TOKEN_SECRET/LIFETIME`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REPORT_HOUR` (default 9), `NODE_ENV`.
+`PORT`, `MONGOURL`, `DBNAME`, `DBUSER`, `DBPASS`, `DBAUTHMECHANISM`, `JWT_SECRET`, `JWT_LIFETIME`, `GITHUB_CLIENT_ID/SECRET/CALLBACK_URL`, `SESSION_SECRET`, `REFRESH_TOKEN_SECRET/LIFETIME`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REPORT_HOUR` (default 9), `ADMIN_URL` (alert footer link), `NODE_ENV`.
 
 ## Constraints / notes
 - Mongoose 6 deprecation warning about `strictQuery` (non-blocking).

@@ -6,7 +6,7 @@
   - CRUD + `recordPayment` + real-time status (`GET /rentals/:id/status`).
   - Month filter (`?month=YYYY-MM`, "active during month" overlap semantics).
   - Payment status: prepaid model (paid → pending 3 days before due → overdue).
-  - Stats (list + inline `stats` in `GET /rentals`; standalone `/stats`).
+  - Stats (list + inline `stats` in `GET /rentals`; standalone `/stats`). `stats.allTimeCollect` = total collected across all time (ignores month/status filter).
    - **Overlap guard**: `POST /rentals` and `PUT /rentals/:id` reject (409) when the requested stay overlaps an existing rental for the same room (`findOverlappingRental`). Day-granularity with the move-out day still occupied, so same-day move-in is rejected (new tenant moves in the day after move-out).
 
 - **Rooms**:
@@ -25,7 +25,7 @@
 - Tenant management endpoints (Tenant model exists; no dedicated route/controller seen).
 
 ## Current status
-- All tests green: 163 passing across 8 suites.
+- All tests green: 166 passing across 8 suites.
 
 ## Known issues / caveats
 - **Timezone**: month boundaries use server-local time. Boundary edge cases at month start/end could shift a rental into the wrong month if server TZ differs from data intent. Fix by making `monthRange` UTC if needed.

@@ -30,41 +30,28 @@ afterEach(async () => {
 describe("buildPaymentStatusMessage", () => {
   it("formats overdue and pending rooms", () => {
     const text = buildPaymentStatusMessage({
-      overdue: [
-        {
-          room: "301",
-          tenant: "Alice",
-          dueDate: new Date("2026-08-01"),
-          rentAmount: 500,
-        },
-      ],
-      pending: [
-        {
-          room: "302",
-          tenant: "Bob",
-          dueDate: new Date("2026-08-20"),
-          rentAmount: 400,
-        },
-      ],
+      overdue: [{ room: "1", dueDate: new Date(2026, 7, 1) }],
+      pending: [{ room: "2", dueDate: new Date(2026, 7, 7) }],
     });
 
-    expect(text).toContain("📊 Room Payment Status Alert");
-    expect(text).toContain("⚠️ Overdue (1)");
-    expect(text).toContain("Room 301 — Alice");
-    expect(text).toContain("2026-08-01");
-    expect(text).toContain("⏳ Pending (1)");
-    expect(text).toContain("Room 302 — Bob");
+    expect(text).toContain("Room Payment Status Alert:");
+    expect(text).toContain("==== Overdue ====");
+    expect(text).toContain("-Room 1 [01 Aug, 2026]");
+    expect(text).toContain("==== Pending ====");
+    expect(text).toContain("-Room 2 [07 Aug, 2026]");
+    expect(text).toContain("More Details: https://admin.monnykapin.com");
   });
 
   it("omits sections that have no items", () => {
     const text = buildPaymentStatusMessage({ overdue: [], pending: [] });
     expect(text).not.toContain("Overdue");
     expect(text).not.toContain("Pending");
+    expect(text).toContain("More Details:");
   });
 });
 
 describe("getPaymentStatusReport", () => {
-  it("groups pending and overdue rentals by room and tenant", async () => {
+  it("groups pending and overdue rentals by room", async () => {
     const room = await Room.create({ number: "401" });
     const tenant = await Tenant.create({ name: "Carol" });
 
@@ -91,8 +78,7 @@ describe("getPaymentStatusReport", () => {
     expect(report.overdue).toHaveLength(1);
     expect(report.pending).toHaveLength(1);
     expect(report.overdue[0].room).toBe("401");
-    expect(report.overdue[0].tenant).toBe("Carol");
-    expect(report.pending[0].rentAmount).toBe(400);
+    expect(report.pending[0].room).toBe("401");
   });
 });
 
@@ -141,7 +127,9 @@ describe("reportPaymentStatus", () => {
     expect(url).toBe("https://api.telegram.org/bottest-token/sendMessage");
     const body = JSON.parse(options.body);
     expect(body.chat_id).toBe("123456");
-    expect(body.text).toContain("Room 501");
+    expect(body.text).toContain("Room Payment Status Alert:");
+    expect(body.text).toContain("-Room 501");
+    expect(body.text).toContain("More Details: https://admin.monnykapin.com");
   });
 
   it("skips when there is nothing to report", async () => {
