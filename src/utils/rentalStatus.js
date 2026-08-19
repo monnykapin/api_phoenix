@@ -25,6 +25,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 const PAYMENT_STATUSES = ["paid", "pending", "unpaid", "overdue", ""];
 
+/**
+ * "YYYY-MM" key for a date (server-local time).
+ */
+const monthKey = (value) => {
+  const d = new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
 const toDay = (value) => {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -77,4 +85,5 @@ module.exports = {
   isDueSoon,
   toDay,
   PAYMENT_STATUSES,
+  monthKey,
 };

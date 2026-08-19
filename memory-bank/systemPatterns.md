@@ -30,4 +30,5 @@ Single Node.js/Express backend (modular monolith), layered as:
 
 ## Component relationships
 - `Rental` references `Room`, `Tenant`, `User` (createdBy). Register referenced models in `Rental.js` so `.populate()` works.
+- `RentalPayment` (one per `rentalId` + `month`, unique index) stores per-month payment status; `services/paymentStatus.js` (`resolveMonthStatuses`) batch-resolves month status for `GET /rentals?month=` and stats. Deleting a rental also deletes its payment records.
 - `Room.status` (stored) is synced by rental controller but the authoritative value is computed on read.
