@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
-const { computeRentalStatus } = require("../utils/rentalStatus");
+const {
+  computeRentalStatus,
+  PAYMENT_STATUSES,
+} = require("../utils/rentalStatus");
 
 // Register the referenced models so `.populate("roomId")` / `.populate("tenantId")`
 // resolve correctly (otherwise Mongoose throws "Schema hasn't been registered").
@@ -41,8 +44,8 @@ const RentalSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["paid", "pending", "overdue"],
-      default: "pending",
+      enum: PAYMENT_STATUSES,
+      default: "",
     },
     createdBy: {
       type: mongoose.Types.ObjectId,
@@ -53,10 +56,13 @@ const RentalSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-compute the payment status on every save so the stored value always
-// matches the business rules (also kept in sync daily by the cron job).
+// Auto-compute the payment status on save, except when creating a new rental:
+// a new rental keeps an empty status ("") until the daily cron or a recorded
+// payment computes it.
 RentalSchema.pre("save", function (next) {
-  this.paymentStatus = computeRentalStatus(this);
+  if (!this.isNew) {
+    this.paymentStatus = computeRentalStatus(this);
+  }
   next();
 });
 

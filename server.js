@@ -115,7 +115,7 @@ const start = async () => {
       console.log(`Database host: ${databaseHost}`);
     });
 
-    // Daily job: sync rental/room statuses + send Telegram payment alert at REPORT_HOUR.
+    // Daily job: sync room statuses + send Telegram payment alert at REPORT_HOUR.
     startRentalStatusCron();
   } catch (error) {
     console.log(error);

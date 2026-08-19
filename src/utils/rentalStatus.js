@@ -15,6 +15,16 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * All valid rental payment statuses.
+ *  - ""        -> not yet determined (new rentals)
+ *  - "paid"    -> payment recorded or prepaid
+ *  - "pending" -> due soon (within 3 days before due)
+ *  - "overdue" -> past due with no payment
+ *  - "unpaid"  -> manually marked as unpaid (manual override only)
+ */
+const PAYMENT_STATUSES = ["paid", "pending", "unpaid", "overdue", ""];
+
 const toDay = (value) => {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -66,4 +76,5 @@ module.exports = {
   daysUntilDue,
   isDueSoon,
   toDay,
+  PAYMENT_STATUSES,
 };
