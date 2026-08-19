@@ -25,6 +25,16 @@ Rental + Room feature (recently built out in this session).
 
 11. **`allTimeCollect` stat** — `stats.allTimeCollect` added to `GET /rentals` (and `/rentals/stats`) = total rent collected across all time (scoped only by `createdBy`, ignoring `?month`/`?status`).
 
+12. **Create no longer sets room status; `collectedRent` is month-scoped** — `createRental` no longer marks the room `rented` (status is computed on read + synced by cron/update/delete). `stats.collectedRent` now sums only rentals active in the current month (or `?month=`). Also reverted a broken parallel edit that set `Rental.paymentStatus` default to `""` (invalid enum) back to `"pending"`.
+
+13. **Empty `paymentStatus` on create** — `Rental.paymentStatus` enum now includes `""` with default `""`, and the `pre("save")` hook skips computing on create (`if (!this.isNew)`). New rentals keep an empty status until the daily cron or a recorded payment (`recordPayment`) computes it; updates and payments still recompute via the hook.
+
+14. **Cron no longer changes rental `paymentStatus`** — `jobs/rental-status.js` now only syncs room availability (`syncAllRoomsStatus`) and sends the Telegram report. Rental `paymentStatus` only changes on manual actions: `recordPayment` (→ `paid`) or editing a rental (the `pre("save")` hook recomputes it). Startup sync also only syncs rooms now.
+
+15. **`collectedRent`/`allTimeCollect` count recorded payments only** — `stats.collectedRent` = sum of `rentAmount` for rentals with a recorded `paymentDate` within the selected (or current) month; `stats.allTimeCollect` = the same across all time. The prepaid `paymentStatus === "paid"` (no payment recorded) no longer counts as "collected".
+
+16. **Manual status override endpoint** — added `PUT /api/v1/rentals/:id/status` (`updateRentalStatus` controller) so a rental's `paymentStatus` can be set manually (e.g. `""` → `"paid"`/`"unpaid"`). Uses `findByIdAndUpdate` to bypass the `pre("save")` auto-compute hook so the override persists. Shared `PAYMENT_STATUSES = ["paid", "pending", "unpaid", "overdue", ""]` added to `utils/rentalStatus.js` and used by both the `Rental` model enum (which now also accepts `"overdue"`) and the endpoint validation.
+
 ## Next steps / decisions
 - Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
 - Timezone: month boundaries use server-local time (consistent with `toDay`). If boundary bugs appear at month edges, switch `monthRange` to UTC.

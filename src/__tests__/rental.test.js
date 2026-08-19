@@ -82,11 +82,11 @@ describe("rentalStatus util", () => {
 });
 
 describe("Rental Model", () => {
-  it("auto-computes paymentStatus on create", async () => {
+  it("keeps an empty paymentStatus on create", async () => {
     const room = await Room.create({ number: "201" });
     const tenant = await Tenant.create({ name: "Tenant One" });
 
-    const overdue = await Rental.create({
+    const rental = await Rental.create({
       roomId: room._id,
       tenantId: tenant._id,
       moveInDate: daysFromNow(-30),
@@ -94,18 +94,9 @@ describe("Rental Model", () => {
       dueDate: daysFromNow(-1),
       createdBy: new mongoose.Types.ObjectId(),
     });
-    expect(overdue.paymentStatus).toBe("overdue");
 
-    const paid = await Rental.create({
-      roomId: room._id,
-      tenantId: tenant._id,
-      moveInDate: daysFromNow(-30),
-      rentAmount: 500,
-      dueDate: daysFromNow(-1),
-      paymentDate: daysFromNow(-2),
-      createdBy: new mongoose.Types.ObjectId(),
-    });
-    expect(paid.paymentStatus).toBe("paid");
+    // New rentals are not assigned a status until the cron / a payment runs.
+    expect(rental.paymentStatus).toBe("");
   });
 
   it("rejects invalid paymentStatus enum", async () => {
@@ -144,7 +135,7 @@ describe("Rental Controller", () => {
   });
 
   describe("POST /api/v1/rentals", () => {
-    it("creates a rental with auto status", async () => {
+    it("creates a rental with an empty status", async () => {
       const res = await request(app)
         .post("/api/v1/rentals")
         .send({
@@ -156,7 +147,7 @@ describe("Rental Controller", () => {
         })
         .expect(201);
 
-      expect(res.body.rental.paymentStatus).toBe("overdue");
+      expect(res.body.rental.paymentStatus).toBe("");
       expect(res.body.rental.rentAmount).toBe(400);
     });
 
@@ -254,7 +245,7 @@ describe("Rental Controller", () => {
         })
         .expect(201);
 
-      expect(res.body.rental.paymentStatus).toBe("paid"); // prepaid, far from due
+      expect(res.body.rental.paymentStatus).toBe("");
     });
 
     it("allows a future rental that does not overlap an existing stay", async () => {
@@ -317,6 +308,7 @@ describe("Rental Controller", () => {
           moveInDate: daysFromNow(-30),
           rentAmount: 100,
           dueDate: daysFromNow(-5),
+          paymentStatus: "overdue",
           createdBy: userId,
         },
         {
@@ -325,6 +317,7 @@ describe("Rental Controller", () => {
           moveInDate: daysFromNow(-30),
           rentAmount: 200,
           dueDate: daysFromNow(10),
+          paymentStatus: "paid",
           createdBy: userId,
         },
       ]);
@@ -392,6 +385,7 @@ describe("Rental Controller", () => {
           rentAmount: 100,
           dueDate: new Date(2026, 2, 1),
           paymentDate: new Date(2026, 1, 20),
+          paymentStatus: "paid",
           createdBy: userId,
         },
         {
@@ -400,6 +394,7 @@ describe("Rental Controller", () => {
           moveInDate: new Date(2026, 1, 10),
           rentAmount: 200,
           dueDate: new Date(2026, 2, 10),
+          paymentStatus: "overdue",
           createdBy: userId,
         },
         {
@@ -435,6 +430,7 @@ describe("Rental Controller", () => {
           rentAmount: 100,
           dueDate: new Date(2026, 0, 1),
           paymentDate: new Date(2026, 0, 2),
+          paymentStatus: "paid",
           createdBy: userId,
         },
         {
@@ -444,6 +440,7 @@ describe("Rental Controller", () => {
           rentAmount: 200,
           dueDate: new Date(2026, 1, 1),
           paymentDate: new Date(2026, 1, 2),
+          paymentStatus: "paid",
           createdBy: userId,
         },
       ]);
@@ -453,6 +450,42 @@ describe("Rental Controller", () => {
         .expect(200);
 
       // January-only collected rent is 100, but the all-time total is 300.
+      expect(res.body.stats.collectedRent).toBe(100);
+      expect(res.body.stats.allTimeCollect).toBe(300);
+    });
+
+    it("scopes collectedRent to the current month when no month is selected", async () => {
+      const now = new Date();
+      const thisMonthPayment = new Date(now.getFullYear(), now.getMonth(), 5);
+      const lastMonthPayment = new Date(now.getFullYear(), now.getMonth() - 1, 5);
+
+      await Rental.create([
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: thisMonthPayment,
+          rentAmount: 100,
+          dueDate: thisMonthPayment,
+          paymentDate: thisMonthPayment,
+          paymentStatus: "paid",
+          createdBy: userId,
+        },
+        {
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: lastMonthPayment,
+          rentAmount: 200,
+          dueDate: lastMonthPayment,
+          paymentDate: lastMonthPayment,
+          paymentStatus: "paid",
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app).get("/api/v1/rentals").expect(200);
+
+      // Only payments recorded in the current month count toward collectedRent;
+      // the all-time total includes both.
       expect(res.body.stats.collectedRent).toBe(100);
       expect(res.body.stats.allTimeCollect).toBe(300);
     });
@@ -481,6 +514,111 @@ describe("Rental Controller", () => {
     it("returns 404 for unknown rental", async () => {
       const id = new mongoose.Types.ObjectId();
       await request(app).get(`/api/v1/rentals/${id}/status`).expect(404);
+    });
+  });
+
+  describe("PUT /api/v1/rentals/:id/status", () => {
+    it("manually changes an empty status to paid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      expect(rental.paymentStatus).toBe("");
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "paid" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("paid");
+    });
+
+    it("manually changes a status to unpaid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "unpaid" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("unpaid");
+
+      // The manual override must persist (not be recomputed by the save hook).
+      const persisted = await Rental.findById(rental._id);
+      expect(persisted.paymentStatus).toBe("unpaid");
+    });
+
+    it("clears the status back to an empty string", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("");
+    });
+
+    it("returns 400 for an invalid status", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "bogus" })
+        .expect(400);
+
+      expect(res.body.msg).toContain("status must be one of");
+    });
+
+    it("returns 400 when no status is provided", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({})
+        .expect(400);
+    });
+
+    it("returns 404 for unknown rental", async () => {
+      const id = new mongoose.Types.ObjectId();
+      await request(app)
+        .put(`/api/v1/rentals/${id}/status`)
+        .send({ status: "paid" })
+        .expect(404);
     });
   });
 
@@ -596,6 +734,7 @@ describe("Rental Controller", () => {
           rentAmount: 100,
           dueDate: daysFromNow(-5),
           paymentDate: daysFromNow(-6),
+          paymentStatus: "paid",
           createdBy: userId,
         },
         {
@@ -604,6 +743,7 @@ describe("Rental Controller", () => {
           moveInDate: daysFromNow(-30),
           rentAmount: 200,
           dueDate: daysFromNow(-2),
+          paymentStatus: "overdue",
           createdBy: userId,
         },
       ]);

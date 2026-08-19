@@ -1,44 +1,24 @@
 /**
  * Daily status-update job.
  *
- * Recomputes the paymentStatus of every rental that has not recorded a payment
- * (paymentDate is null). These are the only rentals whose status changes over
- * time: a prepaid "paid" flips to "pending" as the due date approaches (3 days
- * out) and then to "overdue" once the due date passes. Rentals with a recorded
- * payment stay "paid" and are skipped.
- *
- * Also refreshes every room's stored availability so a room flips back to
+ * Refreshes every room's stored availability so a room flips back to
  * "available" once its last active rental's move-out date has passed.
  *
+ * Rental payment status is intentionally NOT changed here. It only changes on
+ * manual actions (recording a payment or editing a rental), never automatically
+ * by the cron.
+ *
  * Scheduling:
- *  - Status sync runs once on startup (so stored values are correct immediately)
- *    and again daily at the configured hour.
+ *  - Room status sync runs once on startup (so stored values are correct
+ *    immediately) and again daily at the configured hour.
  *  - The Telegram payment-status report is sent only at the configured hour
  *    (default 09:00 local time), and only when there are pending/overdue rooms.
  */
 
-const Rental = require("../models/Rental");
-const { computeRentalStatus } = require("../utils/rentalStatus");
 const { syncAllRoomsStatus } = require("../services/roomStatus");
 const { reportPaymentStatus } = require("../services/paymentReport");
 
 const DEFAULT_REPORT_HOUR = 9;
-
-const updateRentalStatuses = async () => {
-  const rentals = await Rental.find({ paymentDate: null });
-
-  let updated = 0;
-  for (const rental of rentals) {
-    const status = computeRentalStatus(rental);
-    if (status !== rental.paymentStatus) {
-      rental.paymentStatus = status;
-      await rental.save();
-      updated += 1;
-    }
-  }
-
-  return updated;
-};
 
 // Milliseconds until the next `hour`:00 local time, relative to `from`.
 const msUntilNextHour = (hour, from = new Date()) => {
@@ -48,11 +28,11 @@ const msUntilNextHour = (hour, from = new Date()) => {
   return next.getTime() - from.getTime();
 };
 
-// Recompute rental + room statuses (no notification).
+// Recompute room statuses (no notification). Rental payment status is left
+// untouched — it only changes on manual actions.
 const syncStatuses = async () => {
-  const updated = await updateRentalStatuses();
   const roomsChanged = await syncAllRoomsStatus();
-  return { updated, roomsChanged };
+  return { roomsChanged };
 };
 
 // Send the Telegram payment-status report (skipped when nothing to report).
@@ -78,9 +58,9 @@ const startRentalStatusCron = () => {
   // Full daily job: sync statuses, then send the Telegram report.
   const runDaily = async () => {
     try {
-      const { updated, roomsChanged } = await syncStatuses();
+      const { roomsChanged } = await syncStatuses();
       console.log(
-        `[cron] status update completed: ${updated} rental(s), ${roomsChanged} room(s) changed`
+        `[cron] status update completed: ${roomsChanged} room(s) changed`
       );
     } catch (error) {
       console.error("[cron] status update failed:", error.message);
@@ -93,12 +73,12 @@ const startRentalStatusCron = () => {
     }
   };
 
-  // Sync statuses immediately on startup (correct stored values right away),
-  // without sending the Telegram report.
+  // Sync room statuses immediately on startup (correct stored values right
+  // away), without sending the Telegram report.
   syncStatuses()
-    .then(({ updated, roomsChanged }) =>
+    .then(({ roomsChanged }) =>
       console.log(
-        `[cron] startup status sync completed: ${updated} rental(s), ${roomsChanged} room(s) changed`
+        `[cron] startup status sync completed: ${roomsChanged} room(s) changed`
       )
     )
     .catch((error) =>
@@ -120,7 +100,6 @@ const startRentalStatusCron = () => {
 };
 
 module.exports = {
-  updateRentalStatuses,
   syncStatuses,
   msUntilNextHour,
   startRentalStatusCron,
