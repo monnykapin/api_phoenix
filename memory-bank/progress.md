@@ -6,7 +6,7 @@
   - CRUD + `recordPayment` + real-time status (`GET /rentals/:id/status`).
   - Month filter (`?month=YYYY-MM`, "active during month" overlap semantics).
   - Payment status: prepaid model (paid → pending 3 days before due → overdue). New rentals start with an empty status (`""`) and only get a status on manual actions (payment recording or editing); the cron no longer changes it.
-  - Stats (list + inline `stats` in `GET /rentals`; standalone `/stats`). `stats.collectedRent` = rent actually collected (recorded `paymentDate`) in the current/selected month; `stats.allTimeCollect` = total actually collected across all time (ignores month/status filter).
+  - Stats (list + inline `stats` in `GET /rentals`; standalone `/stats`). `stats.collectedRent` = sum of recorded payment amounts (from `rentalpayments`) in the current/selected month; `stats.allTimeCollect` = total recorded payment amounts across all months (each month's payment counts).
    - **Manual status override**: `PUT /api/v1/rentals/:id/status` sets `paymentStatus` directly (accepts `paid`/`pending`/`unpaid`/`overdue`/`""`), bypassing the auto-compute hook so the change sticks. Optional `month` body field scopes the change to a specific month (defaults to current month).
    - **Month-scoped status**: per-month payment records live in a separate `rentalpayments` collection (`models/RentalPayment.js`), one per rental+month. `GET /rentals?month=` returns each rental's resolved status plus that month's `paymentDate`/`paymentAmount`; stats resolve status via `services/paymentStatus.js` (`resolveMonthStatuses`), so a rental paid in July stays `paid` when filtering July even after a later month is marked `unpaid`. Run `npm run migrate:monthly-status` once to move old embedded `monthlyStatus` data.
 
@@ -29,7 +29,7 @@
 - Tenant management endpoints (Tenant model exists; no dedicated route/controller seen).
 
 ## Current status
-- All tests green: 180 passing across 8 suites.
+- All tests green: 184 passing across 8 suites.
 
 ## Known issues / caveats
 - **Timezone**: month boundaries use server-local time. Boundary edge cases at month start/end could shift a rental into the wrong month if server TZ differs from data intent. Fix by making `monthRange` UTC if needed.

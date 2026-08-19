@@ -21,4 +21,24 @@ const monthRange = (month) => {
   };
 };
 
-module.exports = { monthRange };
+/**
+ * Add one month to a date, keeping the day of month. When the target month is
+ * shorter than the source day (e.g. Jan 31 -> Feb), the day is clamped to the
+ * last day of the target month.
+ */
+const addOneMonth = (value) => {
+  const d = new Date(value);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate();
+  const day = Math.min(d.getDate(), lastDay);
+  return new Date(
+    d.getFullYear(),
+    d.getMonth() + 1,
+    day,
+    d.getHours(),
+    d.getMinutes(),
+    d.getSeconds(),
+    d.getMilliseconds()
+  );
+};
+
+module.exports = { monthRange, addOneMonth };

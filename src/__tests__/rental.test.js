@@ -14,6 +14,7 @@ const {
   monthKey,
 } = require("../utils/rentalStatus");
 const { resolveMonthStatuses } = require("../services/paymentStatus");
+const { addOneMonth } = require("../utils/month");
 
 const rentalRoutes = require("../routes/rental");
 const errorHandlerMiddleware = require("../middleware/error-handler");
@@ -86,6 +87,18 @@ describe("rentalStatus util", () => {
   it("formats a date as its YYYY-MM month key", () => {
     expect(monthKey(new Date(2026, 6, 25))).toBe("2026-07");
     expect(monthKey(new Date(2026, 0, 1))).toBe("2026-01");
+  });
+
+  it("addOneMonth shifts to the next month and clamps short months", () => {
+    expect(addOneMonth(new Date(2026, 5, 17)).getTime()).toBe(
+      new Date(2026, 6, 17).getTime()
+    );
+    expect(addOneMonth(new Date(2026, 0, 31)).getTime()).toBe(
+      new Date(2026, 1, 28).getTime()
+    );
+    expect(addOneMonth(new Date(2026, 11, 15)).getTime()).toBe(
+      new Date(2027, 0, 15).getTime()
+    );
   });
 
   describe("resolveMonthStatuses service", () => {
@@ -242,6 +255,41 @@ describe("Rental Controller", () => {
         .expect(201);
 
       expect(res.body.rental.tenantId).toBeNull();
+    });
+
+    it("defaults dueDate to one month after moveInDate when missing", async () => {
+      const moveIn = new Date(2026, 5, 17);
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: moveIn,
+          rentAmount: 400,
+        })
+        .expect(201);
+
+      expect(new Date(res.body.rental.dueDate).getTime()).toBe(
+        addOneMonth(moveIn).getTime()
+      );
+    });
+
+    it("defaults dueDate from moveInDate even when an empty string is sent", async () => {
+      const moveIn = new Date(2026, 5, 17);
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: moveIn,
+          rentAmount: 400,
+          dueDate: "",
+        })
+        .expect(201);
+
+      expect(new Date(res.body.rental.dueDate).getTime()).toBe(
+        addOneMonth(moveIn).getTime()
+      );
     });
 
     it("rejects a new rental when the room already has an active rental", async () => {
@@ -447,35 +495,42 @@ describe("Rental Controller", () => {
     });
 
     it("includes stats scoped to the same filters", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 1),
-          rentAmount: 100,
-          dueDate: new Date(2026, 2, 1),
-          paymentDate: new Date(2026, 1, 20),
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 10),
-          rentAmount: 200,
-          dueDate: new Date(2026, 2, 10),
-          paymentStatus: "overdue",
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 2, 1),
-          rentAmount: 400,
-          dueDate: new Date(2026, 3, 1),
-          createdBy: userId,
-        },
-      ]);
+      const paidRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 1),
+        rentAmount: 100,
+        dueDate: new Date(2026, 2, 1),
+        paymentDate: new Date(2026, 1, 20),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 10),
+        rentAmount: 200,
+        dueDate: new Date(2026, 2, 10),
+        paymentStatus: "overdue",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 2, 1),
+        rentAmount: 400,
+        dueDate: new Date(2026, 3, 1),
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: paidRental._id,
+        month: "2026-02",
+        status: "paid",
+        paymentDate: new Date(2026, 1, 20),
+        amount: 100,
+        createdBy: userId,
+      });
 
       const res = await request(app)
         .get("/api/v1/rentals?month=2026-02")
@@ -492,28 +547,42 @@ describe("Rental Controller", () => {
     });
 
     it("returns allTimeCollect regardless of the month filter", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 0, 5),
-          rentAmount: 100,
-          dueDate: new Date(2026, 0, 1),
-          paymentDate: new Date(2026, 0, 2),
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 5),
-          rentAmount: 200,
-          dueDate: new Date(2026, 1, 1),
-          paymentDate: new Date(2026, 1, 2),
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-      ]);
+      const janRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 0, 5),
+        rentAmount: 100,
+        dueDate: new Date(2026, 0, 1),
+        paymentDate: new Date(2026, 0, 2),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      const febRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 5),
+        rentAmount: 200,
+        dueDate: new Date(2026, 1, 1),
+        paymentDate: new Date(2026, 1, 2),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: janRental._id,
+        month: "2026-01",
+        status: "paid",
+        paymentDate: new Date(2026, 0, 2),
+        amount: 100,
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: febRental._id,
+        month: "2026-02",
+        status: "paid",
+        paymentDate: new Date(2026, 1, 2),
+        amount: 200,
+        createdBy: userId,
+      });
 
       const res = await request(app)
         .get("/api/v1/rentals?month=2026-01")
@@ -529,28 +598,43 @@ describe("Rental Controller", () => {
       const thisMonthPayment = new Date(now.getFullYear(), now.getMonth(), 5);
       const lastMonthPayment = new Date(now.getFullYear(), now.getMonth() - 1, 5);
 
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: thisMonthPayment,
-          rentAmount: 100,
-          dueDate: thisMonthPayment,
-          paymentDate: thisMonthPayment,
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: lastMonthPayment,
-          rentAmount: 200,
-          dueDate: lastMonthPayment,
-          paymentDate: lastMonthPayment,
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-      ]);
+      const thisMonthRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: thisMonthPayment,
+        rentAmount: 100,
+        dueDate: thisMonthPayment,
+        paymentDate: thisMonthPayment,
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      const lastMonthRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: lastMonthPayment,
+        rentAmount: 200,
+        dueDate: lastMonthPayment,
+        paymentDate: lastMonthPayment,
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: thisMonthRental._id,
+        month: monthKey(new Date()),
+        status: "paid",
+        paymentDate: thisMonthPayment,
+        amount: 100,
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: lastMonthRental._id,
+        month: monthKey(lastMonthPayment),
+        status: "paid",
+        paymentDate: lastMonthPayment,
+        amount: 200,
+        createdBy: userId,
+      });
 
       const res = await request(app).get("/api/v1/rentals").expect(200);
 
@@ -915,27 +999,34 @@ describe("Rental Controller", () => {
 
   describe("GET /api/v1/rentals/stats", () => {
     it("returns overview statistics", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: daysFromNow(-30),
-          rentAmount: 100,
-          dueDate: daysFromNow(-5),
-          paymentDate: daysFromNow(-6),
-          paymentStatus: "paid",
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: daysFromNow(-30),
-          rentAmount: 200,
-          dueDate: daysFromNow(-2),
-          paymentStatus: "overdue",
-          createdBy: userId,
-        },
-      ]);
+      const paidRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 100,
+        dueDate: daysFromNow(-5),
+        paymentDate: daysFromNow(-6),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 200,
+        dueDate: daysFromNow(-2),
+        paymentStatus: "overdue",
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: paidRental._id,
+        month: monthKey(new Date()),
+        status: "paid",
+        paymentDate: daysFromNow(-6),
+        amount: 100,
+        createdBy: userId,
+      });
 
       const res = await request(app).get("/api/v1/rentals/stats").expect(200);
 
@@ -945,6 +1036,50 @@ describe("Rental Controller", () => {
       expect(res.body.expectedRent).toBe(300);
       expect(res.body.collectedRent).toBe(100);
       expect(res.body.outstandingRent).toBe(200);
+    });
+
+    it("sums every month's payment into allTimeCollect for a single rental", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 0, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 0, 5),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      // One rental pays in three different months.
+      await RentalPayment.create([
+        {
+          rentalId: rental._id,
+          month: "2026-01",
+          status: "paid",
+          paymentDate: new Date(2026, 0, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+        {
+          rentalId: rental._id,
+          month: "2026-02",
+          status: "paid",
+          paymentDate: new Date(2026, 1, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+        {
+          rentalId: rental._id,
+          month: "2026-03",
+          status: "paid",
+          paymentDate: new Date(2026, 2, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app).get("/api/v1/rentals/stats").expect(200);
+
+      expect(res.body.allTimeCollect).toBe(1500);
     });
 
     it("scopes stats to a single month", async () => {
