@@ -37,7 +37,7 @@ src/
 ## Testing
 - **Jest** with `mongodb-memory-server` (in-memory Mongo), `supertest` for HTTP.
 - Tests build an Express app with mocked `req.user` (`createApp(userId)`).
-- Run: `npx jest --runInBand` (180 tests currently passing).
+- Run: `npx jest --runInBand` (184 tests currently passing).
 
 ## Environment variables (src/config/.env)
 `PORT`, `MONGOURL`, `DBNAME`, `DBUSER`, `DBPASS`, `DBAUTHMECHANISM`, `JWT_SECRET`, `JWT_LIFETIME`, `GITHUB_CLIENT_ID/SECRET/CALLBACK_URL`, `SESSION_SECRET`, `REFRESH_TOKEN_SECRET/LIFETIME`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `REPORT_HOUR` (default 9), `ADMIN_URL` (alert footer link), `NODE_ENV`.

@@ -37,6 +37,10 @@ Rental + Room feature (recently built out in this session).
 
 17. **Month-scoped payment status (separate collection)** — per-month payment status now lives in its own `rentalpayments` collection (`models/RentalPayment.js`: `{ rentalId, month, status, paymentDate, amount, createdBy }`, unique index `(rentalId, month)`), so a rental keeps the correct status for every month (July stays `paid` even after August is marked `unpaid`) without growing the Rental document. `recordPayment` upserts a `"paid"` record for the payment's month; `PUT /rentals/:id/status` accepts an optional `month` (defaults to current month) and upserts/clears that month's record (`status: ""` deletes the record). `services/paymentStatus.js` → `resolveMonthStatuses(rentals, month)` batch-resolves `{ status, paymentDate, amount }` for `GET /rentals?month=` (which now also returns `paymentDate`/`paymentAmount` per month) and `computeStats` (per-month record → paymentDate within month → stored status). Deleting a rental also deletes its payment records. Migration: `npm run migrate:monthly-status` copies any leftover embedded `monthlyStatus` data into `rentalpayments` and drops the field.
 
+18. **Default `dueDate` on create** — `POST /rentals` no longer requires `dueDate`; when missing/empty it defaults to `moveInDate` shifted to the next month via `addOneMonth` (added to `utils/month.js`, day preserved and clamped for short months, e.g. Jan 31 → Feb 28).
+
+19. **Collection stats sum per-month payments** — `stats.collectedRent` and `stats.allTimeCollect` now sum `amount` from the `rentalpayments` collection (records with a real amount) instead of counting each rental once from the single top-level `paymentDate`. `collectedRent` = sum for the selected/current month; `allTimeCollect` = sum across every month (so a rental that paid 3 months × 500 contributes 1500, not 500).
+
 ## Next steps / decisions
 - Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
 - Timezone: month boundaries use server-local time (consistent with `toDay`). If boundary bugs appear at month edges, switch `monthRange` to UTC.

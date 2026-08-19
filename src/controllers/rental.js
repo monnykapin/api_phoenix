@@ -10,7 +10,7 @@ const {
   PAYMENT_STATUSES,
   monthKey,
 } = require("../utils/rentalStatus");
-const { monthRange } = require("../utils/month");
+const { monthRange, addOneMonth } = require("../utils/month");
 const { refreshRoomStatus } = require("../services/roomStatus");
 const { resolveMonthStatuses } = require("../services/paymentStatus");
 
@@ -53,27 +53,24 @@ const computeStats = async (filter, month) => {
     .filter((rental, index) => statusOf(rental, index) !== "paid")
     .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
 
-  // collectedRent: total rent actually collected (a payment was recorded, i.e.
-  // paymentDate is set) within the current/selected month. A "paid" status from
-  // the prepaid model (no payment recorded yet) is NOT counted here.
-  const collectFilter = { createdBy: filter.createdBy };
-  const collectRange = monthRange(month || currentMonthKey());
-  if (collectRange) {
-    collectFilter.paymentDate = { $gte: collectRange.start, $lt: collectRange.end };
-  } else {
-    collectFilter.paymentDate = { $ne: null };
-  }
-  const collectedRent = (await Rental.find(collectFilter).select("rentAmount"))
-    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+  // collectedRent: sum of recorded payment amounts within the selected/current
+  // month. allTimeCollect: sum across every month. Both read from the per-month
+  // collection, so a rental that paid several months contributes each month's
+  // amount (not just once).
+  const selectedMonth = month || currentMonthKey();
+  const sumCollected = async (match) => {
+    const records = await RentalPayment.find({
+      ...match,
+      amount: { $ne: null },
+    }).select("amount");
+    return records.reduce((sum, r) => sum + (r.amount || 0), 0);
+  };
 
-  // Total actually collected (paymentDate recorded) across all of this user's
-  // rentals, ignoring the current month/status filter (i.e. "all time").
-  const allTimeCollect = await Rental.find({
+  const collectedRent = await sumCollected({
     createdBy: filter.createdBy,
-    paymentDate: { $ne: null },
-  })
-    .select("rentAmount")
-    .then((all) => all.reduce((sum, r) => sum + (r.rentAmount || 0), 0));
+    month: selectedMonth,
+  });
+  const allTimeCollect = await sumCollected({ createdBy: filter.createdBy });
 
   return {
     totalRentals,
@@ -133,17 +130,20 @@ const findOverlappingRental = ({
   return Rental.findOne(query);
 };
 
-// Create a rental; status is auto-computed by the model pre-save hook.
+// Create a rental; status is auto-computed by the model pre-save hook. When no
+// due date is provided, it defaults to one month after the move-in date.
 const createRental = asyncWrapper(async (req, res, next) => {
   const { roomId, moveInDate, rentAmount, dueDate } = req.body;
 
-  if (!roomId || !moveInDate || !rentAmount || !dueDate) {
+  if (!roomId || !moveInDate || !rentAmount) {
     return next(
-      createCustomError(
-        "roomId, moveInDate, rentAmount and dueDate are required",
-        400
-      )
+      createCustomError("roomId, moveInDate and rentAmount are required", 400)
     );
+  }
+
+  // If dueDate is empty, default it to moveInDate shifted to the next month.
+  if (!dueDate) {
+    req.body.dueDate = addOneMonth(moveInDate);
   }
 
   // Reject if the requested stay overlaps an existing rental for this room
