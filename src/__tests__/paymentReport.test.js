@@ -61,6 +61,7 @@ describe("getPaymentStatusReport", () => {
       moveInDate: daysFromNow(-30),
       rentAmount: 500,
       dueDate: daysFromNow(-5), // overdue
+      paymentStatus: "overdue",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
@@ -70,6 +71,7 @@ describe("getPaymentStatusReport", () => {
       moveInDate: daysFromNow(-30),
       rentAmount: 400,
       dueDate: daysFromNow(2), // pending (within 3 days)
+      paymentStatus: "pending",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
@@ -110,6 +112,7 @@ describe("reportPaymentStatus", () => {
       moveInDate: daysFromNow(-30),
       rentAmount: 500,
       dueDate: daysFromNow(-5), // overdue
+      paymentStatus: "overdue",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
@@ -155,6 +158,7 @@ describe("reportPaymentStatus", () => {
       moveInDate: daysFromNow(-30),
       rentAmount: 500,
       dueDate: daysFromNow(-5),
+      paymentStatus: "overdue",
       createdBy: new mongoose.Types.ObjectId(),
     });
 

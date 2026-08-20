@@ -1,5 +1,5 @@
 const Rental = require("../models/Rental");
-const Room = require("../models/Room");
+const RentalPayment = require("../models/RentalPayment");
 const asyncWrapper = require("../middleware/async");
 const { createCustomError } = require("../error/custom-error");
 const {
@@ -7,42 +7,70 @@ const {
   daysUntilDue,
   isDueSoon,
   toDay,
+  PAYMENT_STATUSES,
+  monthKey,
 } = require("../utils/rentalStatus");
-const { monthRange } = require("../utils/month");
+const { monthRange, addOneMonth } = require("../utils/month");
 const { refreshRoomStatus } = require("../services/roomStatus");
+const { resolveMonthStatuses } = require("../services/paymentStatus");
+
+// Current month as "YYYY-MM" (server local time).
+const currentMonthKey = () => monthKey(new Date());
 
 // Compute the overview stats (counts + rent totals) for a given Mongo filter.
-const computeStats = async (filter) => {
+// `month` (optional "YYYY-MM") scopes collectedRent to that month; when omitted
+// it defaults to the current month.
+const computeStats = async (filter, month) => {
   const totalRentals = await Rental.countDocuments(filter);
-  const paid = await Rental.countDocuments({ ...filter, paymentStatus: "paid" });
-  const pending = await Rental.countDocuments({
-    ...filter,
-    paymentStatus: "pending",
-  });
-  const overdue = await Rental.countDocuments({
-    ...filter,
-    paymentStatus: "overdue",
-  });
 
   const rentals = await Rental.find(filter).select(
     "rentAmount paymentDate paymentStatus"
   );
-  const expectedRent = rentals.reduce((sum, r) => sum + (r.rentAmount || 0), 0);
-  const collectedRent = rentals
-    .filter((r) => r.paymentStatus === "paid")
-    .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+
+  // When a month is selected, evaluate each rental's status for that month
+  // (paid in July stays "paid" for July even if its current status changed).
+  const info = month
+    ? await resolveMonthStatuses(rentals, month)
+    : null;
+  const statusOf = (rental, index) =>
+    month ? info[index].status : rental.paymentStatus;
+
+  let paid = 0;
+  let pending = 0;
+  let overdue = 0;
+  rentals.forEach((rental, index) => {
+    const status = statusOf(rental, index);
+    if (status === "paid") paid += 1;
+    else if (status === "pending") pending += 1;
+    else if (status === "overdue") overdue += 1;
+  });
+
+  const expectedRent = rentals.reduce(
+    (sum, r) => sum + (r.rentAmount || 0),
+    0
+  );
   const outstandingRent = rentals
-    .filter((r) => r.paymentStatus !== "paid")
+    .filter((rental, index) => statusOf(rental, index) !== "paid")
     .reduce((sum, r) => sum + (r.rentAmount || 0), 0);
 
-  // Total collected across all of this user's rentals, ignoring the current
-  // month/status filter (i.e. "all time").
-  const allTimeCollect = await Rental.find({
+  // collectedRent: sum of recorded payment amounts within the selected/current
+  // month. allTimeCollect: sum across every month. Both read from the per-month
+  // collection, so a rental that paid several months contributes each month's
+  // amount (not just once).
+  const selectedMonth = month || currentMonthKey();
+  const sumCollected = async (match) => {
+    const records = await RentalPayment.find({
+      ...match,
+      amount: { $ne: null },
+    }).select("amount");
+    return records.reduce((sum, r) => sum + (r.amount || 0), 0);
+  };
+
+  const collectedRent = await sumCollected({
     createdBy: filter.createdBy,
-    paymentStatus: "paid",
-  })
-    .select("rentAmount")
-    .then((all) => all.reduce((sum, r) => sum + (r.rentAmount || 0), 0));
+    month: selectedMonth,
+  });
+  const allTimeCollect = await sumCollected({ createdBy: filter.createdBy });
 
   return {
     totalRentals,
@@ -102,17 +130,20 @@ const findOverlappingRental = ({
   return Rental.findOne(query);
 };
 
-// Create a rental; status is auto-computed by the model pre-save hook.
+// Create a rental; status is auto-computed by the model pre-save hook. When no
+// due date is provided, it defaults to one month after the move-in date.
 const createRental = asyncWrapper(async (req, res, next) => {
   const { roomId, moveInDate, rentAmount, dueDate } = req.body;
 
-  if (!roomId || !moveInDate || !rentAmount || !dueDate) {
+  if (!roomId || !moveInDate || !rentAmount) {
     return next(
-      createCustomError(
-        "roomId, moveInDate, rentAmount and dueDate are required",
-        400
-      )
+      createCustomError("roomId, moveInDate and rentAmount are required", 400)
     );
+  }
+
+  // If dueDate is empty, default it to moveInDate shifted to the next month.
+  if (!dueDate) {
+    req.body.dueDate = addOneMonth(moveInDate);
   }
 
   // Reject if the requested stay overlaps an existing rental for this room
@@ -131,8 +162,10 @@ const createRental = asyncWrapper(async (req, res, next) => {
   req.body.createdBy = req.user.userId;
   const rental = await Rental.create(req.body);
 
-  // The room is now occupied.
-  await Room.findByIdAndUpdate(roomId, { status: "rented" });
+  // Note: room status is intentionally NOT set here. A newly recorded rental
+  // (e.g. a future move-in) does not occupy the room yet; the room's stored
+  // status is synced by the daily cron and on rental update/delete, while the
+  // authoritative status is always computed on read (GET /rooms).
 
   res.status(201).json({ rental });
 });
@@ -165,15 +198,31 @@ const getAllRentals = asyncWrapper(async (req, res, next) => {
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = parseInt(req.query.offset, 10) || 0;
 
-  const rentals = await Rental.find(filter)
+  let rentals = await Rental.find(filter)
     .populate("roomId", "number")
     .populate("tenantId", "name email")
     .sort({ dueDate: 1 })
     .limit(limit)
     .skip(offset);
 
+  // When filtering by month, surface each rental's status (and payment
+  // details) for that month. A rental paid in July must stay "paid" for July
+  // even if its current status was later changed to "unpaid" for a newer month.
+  if (req.query.month) {
+    const info = await resolveMonthStatuses(rentals, req.query.month);
+    rentals = rentals.map((rental, index) => {
+      const result = rental.toObject();
+      // Drop any leftover embedded per-month field from pre-migration data.
+      delete result.monthlyStatus;
+      result.paymentStatus = info[index].status;
+      result.paymentDate = info[index].paymentDate;
+      result.paymentAmount = info[index].amount;
+      return result;
+    });
+  }
+
   const total = await Rental.countDocuments(filter);
-  const stats = await computeStats(filter);
+  const stats = await computeStats(filter, req.query.month);
 
   res.status(200).json({ rentals, total, limit, offset, stats });
 });
@@ -214,6 +263,54 @@ const getRentalStatus = asyncWrapper(async (req, res, next) => {
     paymentDate: rental.paymentDate,
     rentAmount: rental.rentAmount,
   });
+});
+
+// Manually override a rental's payment status for a month (defaults to the
+// current month). e.g. change July's status to "paid", or the current month's
+// status to "unpaid". Uses updateOne so the pre-save auto-compute hook is
+// bypassed and the manual override sticks.
+const updateRentalStatus = asyncWrapper(async (req, res, next) => {
+  const { id: rentalId } = req.params;
+  const { status, month } = req.body;
+
+  if (!PAYMENT_STATUSES.includes(status)) {
+    return next(
+      createCustomError(
+        `status must be one of "${PAYMENT_STATUSES.join('", "')}"`,
+        400
+      )
+    );
+  }
+
+  const targetMonth = month || currentMonthKey();
+  if (!/^\d{4}-\d{2}$/.test(targetMonth)) {
+    return next(createCustomError("month must be in YYYY-MM format", 400));
+  }
+
+  const rental = await Rental.findById(rentalId);
+  if (!rental) {
+    return next(createCustomError(`No rental found with id: ${rentalId}`, 404));
+  }
+
+  // Store the status for the target month in the per-month collection (at most
+  // one record per rental + month). An empty status means "not determined",
+  // which clears the per-month record instead of storing an empty status.
+  if (status === "") {
+    await RentalPayment.deleteOne({ rentalId: rental._id, month: targetMonth });
+  } else {
+    await RentalPayment.findOneAndUpdate(
+      { rentalId: rental._id, month: targetMonth },
+      { $set: { status, createdBy: rental.createdBy } },
+      { upsert: true, new: true, runValidators: true }
+    );
+  }
+
+  // Keep the top-level "current" status in sync. Uses updateOne so the
+  // pre-save auto-compute hook cannot overwrite the manual value.
+  await Rental.updateOne({ _id: rental._id }, { paymentStatus: status });
+  const updated = await Rental.findById(rental._id);
+
+  res.status(200).json({ rental: updated });
 });
 
 // Update rental fields; recomputes status after applying changes.
@@ -287,6 +384,23 @@ const recordPayment = asyncWrapper(async (req, res, next) => {
   rental.paymentDate = paymentDate ? new Date(paymentDate) : new Date();
   rental.paymentStatus = computeRentalStatus(rental);
 
+  // Record the payment against the month it belongs to in the per-month
+  // collection, so month-filtered views (e.g. July) keep showing "paid" even
+  // after later months change.
+  const paidMonth = monthKey(rental.paymentDate);
+  await RentalPayment.findOneAndUpdate(
+    { rentalId: rental._id, month: paidMonth },
+    {
+      $set: {
+        status: "paid",
+        paymentDate: rental.paymentDate,
+        amount: amountNumber,
+        createdBy: rental.createdBy,
+      },
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+
   await rental.save();
 
   res.status(200).json({
@@ -305,6 +419,9 @@ const deleteRental = asyncWrapper(async (req, res, next) => {
     return next(createCustomError(`No rental found with id: ${rentalId}`, 404));
   }
 
+  // The per-month payment records belong to this rental; remove them too.
+  await RentalPayment.deleteMany({ rentalId: rental._id });
+
   // The room may now be available again.
   await refreshRoomStatus(rental.roomId);
 
@@ -322,7 +439,7 @@ const getRentalStats = asyncWrapper(async (req, res, next) => {
     }
   }
 
-  const stats = await computeStats(baseFilter);
+  const stats = await computeStats(baseFilter, req.query.month);
 
   res.status(200).json(stats);
 });
@@ -333,6 +450,7 @@ module.exports = {
   getRental,
   getRentalStatus,
   updateRental,
+  updateRentalStatus,
   recordPayment,
   deleteRental,
   getRentalStats,

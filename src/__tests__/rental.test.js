@@ -5,12 +5,16 @@ const express = require("express");
 const Room = require("../models/Room");
 const Tenant = require("../models/Tenant");
 const Rental = require("../models/Rental");
+const RentalPayment = require("../models/RentalPayment");
 
 const {
   computeRentalStatus,
   daysUntilDue,
   isDueSoon,
+  monthKey,
 } = require("../utils/rentalStatus");
+const { resolveMonthStatuses } = require("../services/paymentStatus");
+const { addOneMonth } = require("../utils/month");
 
 const rentalRoutes = require("../routes/rental");
 const errorHandlerMiddleware = require("../middleware/error-handler");
@@ -79,14 +83,93 @@ describe("rentalStatus util", () => {
     expect(isDueSoon(daysFromNow(4))).toBe(false);
     expect(isDueSoon(daysFromNow(-1))).toBe(false);
   });
+
+  it("formats a date as its YYYY-MM month key", () => {
+    expect(monthKey(new Date(2026, 6, 25))).toBe("2026-07");
+    expect(monthKey(new Date(2026, 0, 1))).toBe("2026-01");
+  });
+
+  it("addOneMonth shifts to the next month and clamps short months", () => {
+    expect(addOneMonth(new Date(2026, 5, 17)).getTime()).toBe(
+      new Date(2026, 6, 17).getTime()
+    );
+    expect(addOneMonth(new Date(2026, 0, 31)).getTime()).toBe(
+      new Date(2026, 1, 28).getTime()
+    );
+    expect(addOneMonth(new Date(2026, 11, 15)).getTime()).toBe(
+      new Date(2027, 0, 15).getTime()
+    );
+  });
+
+  describe("resolveMonthStatuses service", () => {
+    it("prefers an explicit RentalPayment record for the month", async () => {
+      const room = await Room.create({ number: "301" });
+      const tenant = await Tenant.create({ name: "Tenant" });
+      const userId = new mongoose.Types.ObjectId();
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 6, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 6, 25),
+        paymentStatus: "unpaid",
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: rental._id,
+        month: "2026-07",
+        status: "paid",
+        createdBy: userId,
+      });
+
+      const statuses = await resolveMonthStatuses([rental], "2026-07");
+      expect(statuses).toEqual([
+        { status: "paid", paymentDate: null, amount: null },
+      ]);
+    });
+
+    it("falls back to paymentDate-in-month, then current status", async () => {
+      const room = await Room.create({ number: "302" });
+      const tenant = await Tenant.create({ name: "Tenant" });
+      const userId = new mongoose.Types.ObjectId();
+      const paidInJuly = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 6, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 6, 25),
+        paymentDate: new Date(2026, 6, 25),
+        paymentStatus: "unpaid",
+        createdBy: userId,
+      });
+      const noRecord = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 7, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 8, 1),
+        paymentStatus: "overdue",
+        createdBy: userId,
+      });
+
+      const statuses = await resolveMonthStatuses(
+        [paidInJuly, noRecord],
+        "2026-07"
+      );
+      expect(statuses).toEqual([
+        { status: "paid", paymentDate: paidInJuly.paymentDate, amount: null },
+        { status: "overdue", paymentDate: null, amount: null },
+      ]);
+    });
+  });
 });
 
 describe("Rental Model", () => {
-  it("auto-computes paymentStatus on create", async () => {
+  it("keeps an empty paymentStatus on create", async () => {
     const room = await Room.create({ number: "201" });
     const tenant = await Tenant.create({ name: "Tenant One" });
 
-    const overdue = await Rental.create({
+    const rental = await Rental.create({
       roomId: room._id,
       tenantId: tenant._id,
       moveInDate: daysFromNow(-30),
@@ -94,18 +177,9 @@ describe("Rental Model", () => {
       dueDate: daysFromNow(-1),
       createdBy: new mongoose.Types.ObjectId(),
     });
-    expect(overdue.paymentStatus).toBe("overdue");
 
-    const paid = await Rental.create({
-      roomId: room._id,
-      tenantId: tenant._id,
-      moveInDate: daysFromNow(-30),
-      rentAmount: 500,
-      dueDate: daysFromNow(-1),
-      paymentDate: daysFromNow(-2),
-      createdBy: new mongoose.Types.ObjectId(),
-    });
-    expect(paid.paymentStatus).toBe("paid");
+    // New rentals are not assigned a status until the cron / a payment runs.
+    expect(rental.paymentStatus).toBe("");
   });
 
   it("rejects invalid paymentStatus enum", async () => {
@@ -144,7 +218,7 @@ describe("Rental Controller", () => {
   });
 
   describe("POST /api/v1/rentals", () => {
-    it("creates a rental with auto status", async () => {
+    it("creates a rental with an empty status", async () => {
       const res = await request(app)
         .post("/api/v1/rentals")
         .send({
@@ -156,7 +230,7 @@ describe("Rental Controller", () => {
         })
         .expect(201);
 
-      expect(res.body.rental.paymentStatus).toBe("overdue");
+      expect(res.body.rental.paymentStatus).toBe("");
       expect(res.body.rental.rentAmount).toBe(400);
     });
 
@@ -181,6 +255,41 @@ describe("Rental Controller", () => {
         .expect(201);
 
       expect(res.body.rental.tenantId).toBeNull();
+    });
+
+    it("defaults dueDate to one month after moveInDate when missing", async () => {
+      const moveIn = new Date(2026, 5, 17);
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: moveIn,
+          rentAmount: 400,
+        })
+        .expect(201);
+
+      expect(new Date(res.body.rental.dueDate).getTime()).toBe(
+        addOneMonth(moveIn).getTime()
+      );
+    });
+
+    it("defaults dueDate from moveInDate even when an empty string is sent", async () => {
+      const moveIn = new Date(2026, 5, 17);
+      const res = await request(app)
+        .post("/api/v1/rentals")
+        .send({
+          roomId: room._id,
+          tenantId: tenant._id,
+          moveInDate: moveIn,
+          rentAmount: 400,
+          dueDate: "",
+        })
+        .expect(201);
+
+      expect(new Date(res.body.rental.dueDate).getTime()).toBe(
+        addOneMonth(moveIn).getTime()
+      );
     });
 
     it("rejects a new rental when the room already has an active rental", async () => {
@@ -254,7 +363,7 @@ describe("Rental Controller", () => {
         })
         .expect(201);
 
-      expect(res.body.rental.paymentStatus).toBe("paid"); // prepaid, far from due
+      expect(res.body.rental.paymentStatus).toBe("");
     });
 
     it("allows a future rental that does not overlap an existing stay", async () => {
@@ -317,6 +426,7 @@ describe("Rental Controller", () => {
           moveInDate: daysFromNow(-30),
           rentAmount: 100,
           dueDate: daysFromNow(-5),
+          paymentStatus: "overdue",
           createdBy: userId,
         },
         {
@@ -325,6 +435,7 @@ describe("Rental Controller", () => {
           moveInDate: daysFromNow(-30),
           rentAmount: 200,
           dueDate: daysFromNow(10),
+          paymentStatus: "paid",
           createdBy: userId,
         },
       ]);
@@ -384,33 +495,42 @@ describe("Rental Controller", () => {
     });
 
     it("includes stats scoped to the same filters", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 1),
-          rentAmount: 100,
-          dueDate: new Date(2026, 2, 1),
-          paymentDate: new Date(2026, 1, 20),
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 10),
-          rentAmount: 200,
-          dueDate: new Date(2026, 2, 10),
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 2, 1),
-          rentAmount: 400,
-          dueDate: new Date(2026, 3, 1),
-          createdBy: userId,
-        },
-      ]);
+      const paidRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 1),
+        rentAmount: 100,
+        dueDate: new Date(2026, 2, 1),
+        paymentDate: new Date(2026, 1, 20),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 10),
+        rentAmount: 200,
+        dueDate: new Date(2026, 2, 10),
+        paymentStatus: "overdue",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 2, 1),
+        rentAmount: 400,
+        dueDate: new Date(2026, 3, 1),
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: paidRental._id,
+        month: "2026-02",
+        status: "paid",
+        paymentDate: new Date(2026, 1, 20),
+        amount: 100,
+        createdBy: userId,
+      });
 
       const res = await request(app)
         .get("/api/v1/rentals?month=2026-02")
@@ -427,32 +547,99 @@ describe("Rental Controller", () => {
     });
 
     it("returns allTimeCollect regardless of the month filter", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 0, 5),
-          rentAmount: 100,
-          dueDate: new Date(2026, 0, 1),
-          paymentDate: new Date(2026, 0, 2),
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: new Date(2026, 1, 5),
-          rentAmount: 200,
-          dueDate: new Date(2026, 1, 1),
-          paymentDate: new Date(2026, 1, 2),
-          createdBy: userId,
-        },
-      ]);
+      const janRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 0, 5),
+        rentAmount: 100,
+        dueDate: new Date(2026, 0, 1),
+        paymentDate: new Date(2026, 0, 2),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      const febRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 1, 5),
+        rentAmount: 200,
+        dueDate: new Date(2026, 1, 1),
+        paymentDate: new Date(2026, 1, 2),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: janRental._id,
+        month: "2026-01",
+        status: "paid",
+        paymentDate: new Date(2026, 0, 2),
+        amount: 100,
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: febRental._id,
+        month: "2026-02",
+        status: "paid",
+        paymentDate: new Date(2026, 1, 2),
+        amount: 200,
+        createdBy: userId,
+      });
 
       const res = await request(app)
         .get("/api/v1/rentals?month=2026-01")
         .expect(200);
 
       // January-only collected rent is 100, but the all-time total is 300.
+      expect(res.body.stats.collectedRent).toBe(100);
+      expect(res.body.stats.allTimeCollect).toBe(300);
+    });
+
+    it("scopes collectedRent to the current month when no month is selected", async () => {
+      const now = new Date();
+      const thisMonthPayment = new Date(now.getFullYear(), now.getMonth(), 5);
+      const lastMonthPayment = new Date(now.getFullYear(), now.getMonth() - 1, 5);
+
+      const thisMonthRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: thisMonthPayment,
+        rentAmount: 100,
+        dueDate: thisMonthPayment,
+        paymentDate: thisMonthPayment,
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      const lastMonthRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: lastMonthPayment,
+        rentAmount: 200,
+        dueDate: lastMonthPayment,
+        paymentDate: lastMonthPayment,
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: thisMonthRental._id,
+        month: monthKey(new Date()),
+        status: "paid",
+        paymentDate: thisMonthPayment,
+        amount: 100,
+        createdBy: userId,
+      });
+      await RentalPayment.create({
+        rentalId: lastMonthRental._id,
+        month: monthKey(lastMonthPayment),
+        status: "paid",
+        paymentDate: lastMonthPayment,
+        amount: 200,
+        createdBy: userId,
+      });
+
+      const res = await request(app).get("/api/v1/rentals").expect(200);
+
+      // Only payments recorded in the current month count toward collectedRent;
+      // the all-time total includes both.
       expect(res.body.stats.collectedRent).toBe(100);
       expect(res.body.stats.allTimeCollect).toBe(300);
     });
@@ -481,6 +668,230 @@ describe("Rental Controller", () => {
     it("returns 404 for unknown rental", async () => {
       const id = new mongoose.Types.ObjectId();
       await request(app).get(`/api/v1/rentals/${id}/status`).expect(404);
+    });
+  });
+
+  describe("PUT /api/v1/rentals/:id/status", () => {
+    it("manually changes an empty status to paid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      expect(rental.paymentStatus).toBe("");
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "paid" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("paid");
+    });
+
+    it("manually changes a status to unpaid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "unpaid" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("unpaid");
+
+      // The manual override must persist (not be recomputed by the save hook).
+      const persisted = await Rental.findById(rental._id);
+      expect(persisted.paymentStatus).toBe("unpaid");
+    });
+
+    it("clears the status back to an empty string", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "" })
+        .expect(200);
+
+      expect(res.body.rental.paymentStatus).toBe("");
+    });
+
+    it("returns 400 for an invalid status", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "bogus" })
+        .expect(400);
+
+      expect(res.body.msg).toContain("status must be one of");
+    });
+
+    it("returns 400 when no status is provided", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({})
+        .expect(400);
+    });
+
+    it("returns 404 for unknown rental", async () => {
+      const id = new mongoose.Types.ObjectId();
+      await request(app)
+        .put(`/api/v1/rentals/${id}/status`)
+        .send({ status: "paid" })
+        .expect(404);
+    });
+  });
+
+  describe("month-scoped payment status", () => {
+    it("keeps July paid after the current month is set to unpaid", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 6, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 6, 25),
+        createdBy: userId,
+      });
+
+      // Tenant pays in July.
+      await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({ amount: 500, paymentDate: new Date(2026, 6, 25) })
+        .expect(200);
+
+      // In August the user marks the (next) month unpaid.
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "unpaid", month: "2026-08" })
+        .expect(200);
+
+      const july = await request(app)
+        .get("/api/v1/rentals?month=2026-07")
+        .expect(200);
+      expect(july.body.rentals[0].paymentStatus).toBe("paid");
+      expect(july.body.rentals[0].paymentDate).toBeDefined();
+      expect(july.body.rentals[0].paymentAmount).toBe(500);
+      expect(july.body.stats.paid).toBe(1);
+      expect(july.body.stats.outstandingRent).toBe(0);
+
+      const august = await request(app)
+        .get("/api/v1/rentals?month=2026-08")
+        .expect(200);
+      expect(august.body.rentals[0].paymentStatus).toBe("unpaid");
+      expect(august.body.rentals[0].paymentDate).toBeNull();
+      expect(august.body.rentals[0].paymentAmount).toBeNull();
+    });
+
+    it("defaults a manual status change to the current month", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-60),
+        rentAmount: 500,
+        dueDate: daysFromNow(10),
+        createdBy: userId,
+      });
+
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "unpaid" })
+        .expect(200);
+
+      const current = `${new Date().getFullYear()}-${String(
+        new Date().getMonth() + 1
+      ).padStart(2, "0")}`;
+      const record = await RentalPayment.findOne({
+        rentalId: rental._id,
+        month: current,
+      });
+      expect(record).toBeDefined();
+      expect(record.status).toBe("unpaid");
+    });
+
+    it("keeps a separate payment record for each month", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 6, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 6, 25),
+        createdBy: userId,
+      });
+
+      // Pay in July, then manually set August to unpaid.
+      await request(app)
+        .post(`/api/v1/rentals/${rental._id}/payments`)
+        .send({ amount: 500, paymentDate: new Date(2026, 6, 25) })
+        .expect(200);
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "unpaid", month: "2026-08" })
+        .expect(200);
+
+      const july = await RentalPayment.findOne({
+        rentalId: rental._id,
+        month: "2026-07",
+      });
+      const august = await RentalPayment.findOne({
+        rentalId: rental._id,
+        month: "2026-08",
+      });
+
+      expect(july.status).toBe("paid");
+      expect(july.paymentDate).toBeDefined();
+      expect(july.amount).toBe(500);
+      expect(august.status).toBe("unpaid");
+      expect(august.paymentDate).toBeNull();
+    });
+
+    it("returns 400 for an invalid month on status change", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 400,
+        dueDate: daysFromNow(5),
+        createdBy: userId,
+      });
+
+      await request(app)
+        .put(`/api/v1/rentals/${rental._id}/status`)
+        .send({ status: "paid", month: "bad" })
+        .expect(400);
     });
   });
 
@@ -588,25 +999,34 @@ describe("Rental Controller", () => {
 
   describe("GET /api/v1/rentals/stats", () => {
     it("returns overview statistics", async () => {
-      await Rental.create([
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: daysFromNow(-30),
-          rentAmount: 100,
-          dueDate: daysFromNow(-5),
-          paymentDate: daysFromNow(-6),
-          createdBy: userId,
-        },
-        {
-          roomId: room._id,
-          tenantId: tenant._id,
-          moveInDate: daysFromNow(-30),
-          rentAmount: 200,
-          dueDate: daysFromNow(-2),
-          createdBy: userId,
-        },
-      ]);
+      const paidRental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 100,
+        dueDate: daysFromNow(-5),
+        paymentDate: daysFromNow(-6),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+      await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: daysFromNow(-30),
+        rentAmount: 200,
+        dueDate: daysFromNow(-2),
+        paymentStatus: "overdue",
+        createdBy: userId,
+      });
+
+      await RentalPayment.create({
+        rentalId: paidRental._id,
+        month: monthKey(new Date()),
+        status: "paid",
+        paymentDate: daysFromNow(-6),
+        amount: 100,
+        createdBy: userId,
+      });
 
       const res = await request(app).get("/api/v1/rentals/stats").expect(200);
 
@@ -616,6 +1036,50 @@ describe("Rental Controller", () => {
       expect(res.body.expectedRent).toBe(300);
       expect(res.body.collectedRent).toBe(100);
       expect(res.body.outstandingRent).toBe(200);
+    });
+
+    it("sums every month's payment into allTimeCollect for a single rental", async () => {
+      const rental = await Rental.create({
+        roomId: room._id,
+        tenantId: tenant._id,
+        moveInDate: new Date(2026, 0, 1),
+        rentAmount: 500,
+        dueDate: new Date(2026, 0, 5),
+        paymentStatus: "paid",
+        createdBy: userId,
+      });
+
+      // One rental pays in three different months.
+      await RentalPayment.create([
+        {
+          rentalId: rental._id,
+          month: "2026-01",
+          status: "paid",
+          paymentDate: new Date(2026, 0, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+        {
+          rentalId: rental._id,
+          month: "2026-02",
+          status: "paid",
+          paymentDate: new Date(2026, 1, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+        {
+          rentalId: rental._id,
+          month: "2026-03",
+          status: "paid",
+          paymentDate: new Date(2026, 2, 2),
+          amount: 500,
+          createdBy: userId,
+        },
+      ]);
+
+      const res = await request(app).get("/api/v1/rentals/stats").expect(200);
+
+      expect(res.body.allTimeCollect).toBe(1500);
     });
 
     it("scopes stats to a single month", async () => {

@@ -25,6 +25,22 @@ Rental + Room feature (recently built out in this session).
 
 11. **`allTimeCollect` stat** — `stats.allTimeCollect` added to `GET /rentals` (and `/rentals/stats`) = total rent collected across all time (scoped only by `createdBy`, ignoring `?month`/`?status`).
 
+12. **Create no longer sets room status; `collectedRent` is month-scoped** — `createRental` no longer marks the room `rented` (status is computed on read + synced by cron/update/delete). `stats.collectedRent` now sums only rentals active in the current month (or `?month=`). Also reverted a broken parallel edit that set `Rental.paymentStatus` default to `""` (invalid enum) back to `"pending"`.
+
+13. **Empty `paymentStatus` on create** — `Rental.paymentStatus` enum now includes `""` with default `""`, and the `pre("save")` hook skips computing on create (`if (!this.isNew)`). New rentals keep an empty status until the daily cron or a recorded payment (`recordPayment`) computes it; updates and payments still recompute via the hook.
+
+14. **Cron no longer changes rental `paymentStatus`** — `jobs/rental-status.js` now only syncs room availability (`syncAllRoomsStatus`) and sends the Telegram report. Rental `paymentStatus` only changes on manual actions: `recordPayment` (→ `paid`) or editing a rental (the `pre("save")` hook recomputes it). Startup sync also only syncs rooms now.
+
+15. **`collectedRent`/`allTimeCollect` count recorded payments only** — `stats.collectedRent` = sum of `rentAmount` for rentals with a recorded `paymentDate` within the selected (or current) month; `stats.allTimeCollect` = the same across all time. The prepaid `paymentStatus === "paid"` (no payment recorded) no longer counts as "collected".
+
+16. **Manual status override endpoint** — added `PUT /api/v1/rentals/:id/status` (`updateRentalStatus` controller) so a rental's `paymentStatus` can be set manually (e.g. `""` → `"paid"`/`"unpaid"`). Uses `findByIdAndUpdate` to bypass the `pre("save")` auto-compute hook so the override persists. Shared `PAYMENT_STATUSES = ["paid", "pending", "unpaid", "overdue", ""]` added to `utils/rentalStatus.js` and used by both the `Rental` model enum (which now also accepts `"overdue"`) and the endpoint validation.
+
+17. **Month-scoped payment status (separate collection)** — per-month payment status now lives in its own `rentalpayments` collection (`models/RentalPayment.js`: `{ rentalId, month, status, paymentDate, amount, createdBy }`, unique index `(rentalId, month)`), so a rental keeps the correct status for every month (July stays `paid` even after August is marked `unpaid`) without growing the Rental document. `recordPayment` upserts a `"paid"` record for the payment's month; `PUT /rentals/:id/status` accepts an optional `month` (defaults to current month) and upserts/clears that month's record (`status: ""` deletes the record). `services/paymentStatus.js` → `resolveMonthStatuses(rentals, month)` batch-resolves `{ status, paymentDate, amount }` for `GET /rentals?month=` (which now also returns `paymentDate`/`paymentAmount` per month) and `computeStats` (per-month record → paymentDate within month → stored status). Deleting a rental also deletes its payment records. Migration: `npm run migrate:monthly-status` copies any leftover embedded `monthlyStatus` data into `rentalpayments` and drops the field.
+
+18. **Default `dueDate` on create** — `POST /rentals` no longer requires `dueDate`; when missing/empty it defaults to `moveInDate` shifted to the next month via `addOneMonth` (added to `utils/month.js`, day preserved and clamped for short months, e.g. Jan 31 → Feb 28).
+
+19. **Collection stats sum per-month payments** — `stats.collectedRent` and `stats.allTimeCollect` now sum `amount` from the `rentalpayments` collection (records with a real amount) instead of counting each rental once from the single top-level `paymentDate`. `collectedRent` = sum for the selected/current month; `allTimeCollect` = sum across every month (so a rental that paid 3 months × 500 contributes 1500, not 500).
+
 ## Next steps / decisions
 - Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
 - Timezone: month boundaries use server-local time (consistent with `toDay`). If boundary bugs appear at month edges, switch `monthRange` to UTC.
