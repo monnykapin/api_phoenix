@@ -41,6 +41,8 @@ Rental + Room feature (recently built out in this session).
 
 19. **Collection stats sum per-month payments** — `stats.collectedRent` and `stats.allTimeCollect` now sum `amount` from the `rentalpayments` collection (records with a real amount) instead of counting each rental once from the single top-level `paymentDate`. `collectedRent` = sum for the selected/current month; `allTimeCollect` = sum across every month (so a rental that paid 3 months × 500 contributes 1500, not 500).
 
+20. **Removed stored `Room.status`** — the stored `status` field was a convenience copy that could drift (it wasn't updated on rental create and only synced on update/delete + cron). Removed it, deleted `services/roomStatus.js` (`refreshRoomStatus`/`syncAllRoomsStatus`), dropped the `refreshRoomStatus` calls from the rental controller, and the daily cron (`jobs/rental-status.js`) is now payment-report-only. Room availability is computed on read in `GET /api/v1/rooms` from rentals (`isActiveInWindow`), which was already the authoritative source.
+
 ## Next steps / decisions
 - Room `GET /api/v1/rooms/:id` (single room) — not yet requested.
 - Timezone: month boundaries use server-local time (consistent with `toDay`). If boundary bugs appear at month edges, switch `monthRange` to UTC.
@@ -50,4 +52,4 @@ Rental + Room feature (recently built out in this session).
 ## Important patterns
 - Controllers use `asyncWrapper` and `createCustomError(msg, statusCode)`.
 - Date helpers in `src/utils/` (month.js, rentalStatus.js, roomStatus.js).
-- Room status is computed (source of truth = rentals), not relied upon as a stored value.
+- Room availability is computed on read from rentals (no stored status field).

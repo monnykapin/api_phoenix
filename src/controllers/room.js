@@ -61,7 +61,7 @@ const getAllRooms = asyncWrapper(async (req, res, next) => {
   res.status(200).json({ rooms: filtered, total: filtered.length });
 });
 
-// Create a room. `status` is optional and defaults to "available" on the model.
+// Create a room.
 const createRoom = asyncWrapper(async (req, res, next) => {
   const { number } = req.body;
 
@@ -73,8 +73,8 @@ const createRoom = asyncWrapper(async (req, res, next) => {
   res.status(201).json({ room });
 });
 
-// Update a room's editable fields. `status` is intentionally not updatable
-// here because it is derived from rentals (see getAllRooms / rental controller).
+// Update a room's editable fields. Availability is derived from rentals (see
+// getAllRooms), so only number/description are editable.
 const updateRoom = asyncWrapper(async (req, res, next) => {
   const { id: roomId } = req.params;
 

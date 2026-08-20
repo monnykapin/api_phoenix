@@ -11,7 +11,6 @@ const {
   monthKey,
 } = require("../utils/rentalStatus");
 const { monthRange, addOneMonth } = require("../utils/month");
-const { refreshRoomStatus } = require("../services/roomStatus");
 const { resolveMonthStatuses } = require("../services/paymentStatus");
 
 // Current month as "YYYY-MM" (server local time).
@@ -355,9 +354,6 @@ const updateRental = asyncWrapper(async (req, res, next) => {
   // The pre-save hook recomputes paymentStatus automatically.
   await rental.save();
 
-  // A move-in/out change can flip the room's availability.
-  await refreshRoomStatus(rental.roomId);
-
   res.status(200).json({ rental });
 });
 
@@ -421,9 +417,6 @@ const deleteRental = asyncWrapper(async (req, res, next) => {
 
   // The per-month payment records belong to this rental; remove them too.
   await RentalPayment.deleteMany({ rentalId: rental._id });
-
-  // The room may now be available again.
-  await refreshRoomStatus(rental.roomId);
 
   res.status(200).json({ rental });
 });
