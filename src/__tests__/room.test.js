@@ -8,7 +8,6 @@ const Rental = require("../models/Rental");
 
 const roomRoutes = require("../routes/room");
 const errorHandlerMiddleware = require("../middleware/error-handler");
-const { syncAllRoomsStatus } = require("../services/roomStatus");
 const db = require("./db");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -130,7 +129,7 @@ describe("Room Controller", () => {
   });
 
   describe("POST /api/v1/rooms", () => {
-    it("creates a room with default available status", async () => {
+    it("creates a room", async () => {
       const res = await request(app)
         .post("/api/v1/rooms")
         .send({ number: "501", description: "Room 501" })
@@ -138,7 +137,6 @@ describe("Room Controller", () => {
 
       expect(res.body.room.number).toBe("501");
       expect(res.body.room.description).toBe("Room 501");
-      expect(res.body.room.status).toBe("available");
     });
 
     it("returns 400 when number is missing", async () => {
@@ -162,7 +160,7 @@ describe("Room Controller", () => {
       expect(res.body.room.description).toBe("Updated");
     });
 
-    it("does not allow updating the derived status", async () => {
+    it("does not allow setting a status via update", async () => {
       const room = await Room.create({ number: "603" });
 
       const res = await request(app)
@@ -170,7 +168,8 @@ describe("Room Controller", () => {
         .send({ status: "rented" })
         .expect(200);
 
-      expect(res.body.room.status).toBe("available");
+      // Status is derived from rentals, not stored, so it is not persisted.
+      expect(res.body.room.status).toBeUndefined();
     });
 
     it("returns 404 for a non-existent room", async () => {
@@ -195,49 +194,6 @@ describe("Room Controller", () => {
     it("returns 404 for a non-existent room", async () => {
       const id = new mongoose.Types.ObjectId();
       await request(app).delete(`/api/v1/rooms/${id}`).expect(404);
-    });
-  });
-
-  describe("syncAllRoomsStatus", () => {
-    it("flips a room to available once its rental's move-out date has passed", async () => {
-      const room = await Room.create({ number: "801", status: "rented" });
-      const tenant = await Tenant.create({ name: "Renter" });
-
-      await Rental.create({
-        roomId: room._id,
-        tenantId: tenant._id,
-        moveInDate: new Date(Date.now() - 60 * DAY_MS),
-        moveOutDate: new Date(Date.now() - 1 * DAY_MS),
-        rentAmount: 500,
-        dueDate: new Date(Date.now() - 30 * DAY_MS),
-        createdBy: new mongoose.Types.ObjectId(),
-      });
-
-      const changed = await syncAllRoomsStatus();
-      expect(changed).toBe(1);
-
-      const updated = await Room.findById(room._id);
-      expect(updated.status).toBe("available");
-    });
-
-    it("keeps a room rented while a rental is still active", async () => {
-      const room = await Room.create({ number: "802", status: "rented" });
-      const tenant = await Tenant.create({ name: "Renter" });
-
-      await Rental.create({
-        roomId: room._id,
-        tenantId: tenant._id,
-        moveInDate: new Date(Date.now() - 30 * DAY_MS),
-        rentAmount: 500,
-        dueDate: new Date(Date.now() + 5 * DAY_MS),
-        createdBy: new mongoose.Types.ObjectId(),
-      });
-
-      const changed = await syncAllRoomsStatus();
-      expect(changed).toBe(0);
-
-      const updated = await Room.findById(room._id);
-      expect(updated.status).toBe("rented");
     });
   });
 });

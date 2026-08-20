@@ -1,21 +1,18 @@
 /**
- * Daily status-update job.
+ * Daily payment-status alert job.
  *
- * Refreshes every room's stored availability so a room flips back to
- * "available" once its last active rental's move-out date has passed.
+ * Sends the Telegram payment-status report (rooms that are pending/overdue) at
+ * the configured hour (default 09:00 local time), and only when there are
+ * pending/overdue rooms.
  *
  * Rental payment status is intentionally NOT changed here. It only changes on
  * manual actions (recording a payment or editing a rental), never automatically
  * by the cron.
  *
  * Scheduling:
- *  - Room status sync runs once on startup (so stored values are correct
- *    immediately) and again daily at the configured hour.
- *  - The Telegram payment-status report is sent only at the configured hour
- *    (default 09:00 local time), and only when there are pending/overdue rooms.
+ *  - The report is sent once daily at the configured hour.
  */
 
-const { syncAllRoomsStatus } = require("../services/roomStatus");
 const { reportPaymentStatus } = require("../services/paymentReport");
 
 const DEFAULT_REPORT_HOUR = 9;
@@ -26,13 +23,6 @@ const msUntilNextHour = (hour, from = new Date()) => {
   next.setHours(hour, 0, 0, 0);
   if (next <= from) next.setDate(next.getDate() + 1);
   return next.getTime() - from.getTime();
-};
-
-// Recompute room statuses (no notification). Rental payment status is left
-// untouched — it only changes on manual actions.
-const syncStatuses = async () => {
-  const roomsChanged = await syncAllRoomsStatus();
-  return { roomsChanged };
 };
 
 // Send the Telegram payment-status report (skipped when nothing to report).
@@ -55,17 +45,8 @@ const startRentalStatusCron = () => {
       ? configured
       : DEFAULT_REPORT_HOUR;
 
-  // Full daily job: sync statuses, then send the Telegram report.
+  // Daily job: send the Telegram report.
   const runDaily = async () => {
-    try {
-      const { roomsChanged } = await syncStatuses();
-      console.log(
-        `[cron] status update completed: ${roomsChanged} room(s) changed`
-      );
-    } catch (error) {
-      console.error("[cron] status update failed:", error.message);
-    }
-
     try {
       await sendPaymentReport();
     } catch (error) {
@@ -73,19 +54,7 @@ const startRentalStatusCron = () => {
     }
   };
 
-  // Sync room statuses immediately on startup (correct stored values right
-  // away), without sending the Telegram report.
-  syncStatuses()
-    .then(({ roomsChanged }) =>
-      console.log(
-        `[cron] startup status sync completed: ${roomsChanged} room(s) changed`
-      )
-    )
-    .catch((error) =>
-      console.error("[cron] startup status sync failed:", error.message)
-    );
-
-  // Schedule the daily job (status sync + report) at the configured hour.
+  // Schedule the daily job at the configured hour.
   let timer;
   const schedule = () => {
     timer = setTimeout(async () => {
@@ -100,7 +69,7 @@ const startRentalStatusCron = () => {
 };
 
 module.exports = {
-  syncStatuses,
   msUntilNextHour,
   startRentalStatusCron,
 };
+
