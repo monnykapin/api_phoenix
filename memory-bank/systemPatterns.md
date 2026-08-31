@@ -21,7 +21,7 @@ Single Node.js/Express backend (modular monolith), layered as:
   - `roomStatus.js` — `isActiveInWindow` (does a rental overlap [start,end)).
   - `month.js` — `monthRange("YYYY-MM")` → `{ start, end }`.
 - **Jobs**: `jobs/rental-status.js` runs a daily cron (re-scheduling `setTimeout` targeting `REPORT_HOUR`, default 09:00 local) to sync all room statuses (`syncAllRoomsStatus`) and send a Telegram payment-status alert (`reportPaymentStatus`). It does NOT change rental `paymentStatus` (manual actions only). Room status sync also runs once on startup without sending the alert.
-- **Services**: DB-aware business logic kept separate from pure `utils/`: `roomStatus.js` (room status sync), `telegram.js` (Bot API `sendMessage` via built-in `fetch`), `paymentReport.js` (collect/format/send pending + overdue rooms).
+- **Services**: DB-aware business logic kept separate from pure `utils/`: `paymentStatus.js` (month status resolution), `telegram.js` (Bot API `sendMessage` via built-in `fetch`), `paymentReport.js` (collect/format/send pending + overdue rooms).
 
 ## Critical implementation paths
 - **Payment status**: `computeRentalStatus` is the single source of truth (prepaid model). Used by the model hook, `GET /rentals/:id/status`, and `recordPayment`.
@@ -31,4 +31,4 @@ Single Node.js/Express backend (modular monolith), layered as:
 ## Component relationships
 - `Rental` references `Room`, `Tenant`, `User` (createdBy). Register referenced models in `Rental.js` so `.populate()` works.
 - `RentalPayment` (one per `rentalId` + `month`, unique index) stores per-month payment status; `services/paymentStatus.js` (`resolveMonthStatuses`) batch-resolves month status for `GET /rentals?month=` and stats. Deleting a rental also deletes its payment records.
-- `Room.status` (stored) is synced by rental controller but the authoritative value is computed on read.
+- `Room` availability is computed on read from rentals (`isActiveInWindow`); the model stores no status field.

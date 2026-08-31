@@ -15,13 +15,10 @@
 - **Rooms**:
   - `GET /api/v1/rooms` (computed available/rented status; `?month=` and `?status=` filters).
   - `POST /api/v1/rooms` (create, requires `number`).
-  - `PUT /api/v1/rooms/:id` (update `number`/`description`; `status` not editable — derived from rentals).
+  - `PUT /api/v1/rooms/:id` (update `number`/`description` only; availability is derived from rentals).
   - `DELETE /api/v1/rooms/:id`.
-  - Room status auto-synced from rentals on rental update/delete + daily cron (NOT on create — a new rental doesn't mark the room rented yet).
-- Daily cron for room availability status updates:
-  - `services/roomStatus.js` holds `refreshRoomStatus` + `syncAllRoomsStatus`.
-  - Cron runs `syncAllRoomsStatus` so a room flips to `available` when its last rental's move-out date passes.
-  - Rental `paymentStatus` is NOT changed by the cron — it only changes on manual actions (record payment / edit rental).
+  - Room availability is computed on read from rentals (`GET /api/v1/rooms`); the model stores no status field.
+- Daily cron (`jobs/rental-status.js`) is **payment-report-only** — sends the Telegram pending/overdue alert. Rental `paymentStatus` is NOT changed by the cron — it only changes on manual actions (record payment / edit rental).
 - **Telegram payment-status alert** (daily cron): reports which rooms are `pending` and `overdue` to Telegram via `services/paymentReport.js` + `services/telegram.js`. Sent at `REPORT_HOUR` (default 09:00 local) and only when there are pending/overdue rooms. Needs `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`; skipped if unset or nothing to report.
 
 ## What's left to build
@@ -29,7 +26,7 @@
 - Tenant management endpoints (Tenant model exists; no dedicated route/controller seen).
 
 ## Current status
-- All tests green: 184 passing across 8 suites.
+- All tests green: 182 passing across 8 suites.
 
 ## Known issues / caveats
 - **Timezone**: month boundaries use server-local time. Boundary edge cases at month start/end could shift a rental into the wrong month if server TZ differs from data intent. Fix by making `monthRange` UTC if needed.

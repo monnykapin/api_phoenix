@@ -83,7 +83,7 @@ jobs:
         env:
           WT_TOKEN: ${{ secrets['WATCHTOWER_TOKEN'] }}
         run: |
-          curl -H "Authorization: Bearer $WT_TOKEN" "https://watchtower.monnykapin.com/v1/update?container=api_dev"
+          curl -X POST -H "Authorization: Bearer $WT_TOKEN" "https://watchtower.monnykapin.com/v1/update?container=api-phoenix-dev"
       - name: Show available npm scripts
         run: npm run
         if: failure()

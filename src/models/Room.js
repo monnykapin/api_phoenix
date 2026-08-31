@@ -14,11 +14,6 @@ const RoomSchema = new mongoose.Schema(
       default: "",
       maxlength: [250, "Description can not be more than 250 characters"],
     },
-    status: {
-      type: String,
-      enum: ["available", "rented"],
-      default: "available",
-    },
   },
   { timestamps: true }
 );
