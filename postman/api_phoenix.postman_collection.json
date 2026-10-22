@@ -1,0 +1,2309 @@
+{
+  "collection": {
+    "info": {
+      "_postman_id": "8cefa967-027f-4ddb-b2cf-95c50d8c958f",
+      "name": "API Phoenix",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      "createdAt": "2026-06-10T14:44:04.000Z",
+      "updatedAt": "2026-10-22T08:35:06.000Z",
+      "lastUpdatedBy": "4721969",
+      "uid": "4721969-8cefa967-027f-4ddb-b2cf-95c50d8c958f"
+    },
+    "item": [
+      {
+        "name": "Auth",
+        "item": [
+          {
+            "name": "Login User (Primary)",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "id": "723b2ae8-0164-468f-91bf-4b6972addcfb",
+                  "exec": [
+                    "const jsonData = pm.response.json()\r",
+                    "pm.globals.set(\"accessToken\", jsonData.accessToken);"
+                  ],
+                  "type": "text/javascript",
+                  "packages": {},
+                  "requests": {}
+                }
+              },
+              {
+                "listen": "prerequest",
+                "script": {
+                  "id": "071b5575-5213-42e0-ad24-a9c4319563ef",
+                  "exec": [
+                    ""
+                  ],
+                  "type": "text/javascript",
+                  "packages": {},
+                  "requests": {}
+                }
+              }
+            ],
+            "id": "4bfe4616-dbe0-44d8-87bf-3f5f3ab31918",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"email\": \"{{email}}\",\r\n    \"password\":\"{{password}}\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/login",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "login"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-28T07:20:00.000Z",
+            "uid": "4721969-4bfe4616-dbe0-44d8-87bf-3f5f3ab31918"
+          },
+          {
+            "name": "Login User (Secondary)",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "id": "723b2ae8-0164-468f-91bf-4b6972addcfb",
+                  "exec": [
+                    "const jsonData = pm.response.json()\r",
+                    "pm.globals.set(\"accessToken\", jsonData.accessToken);"
+                  ],
+                  "type": "text/javascript",
+                  "packages": {},
+                  "requests": {}
+                }
+              },
+              {
+                "listen": "prerequest",
+                "script": {
+                  "id": "071b5575-5213-42e0-ad24-a9c4319563ef",
+                  "exec": [
+                    ""
+                  ],
+                  "type": "text/javascript",
+                  "packages": {},
+                  "requests": {}
+                }
+              }
+            ],
+            "id": "d273df67-a74f-445e-a072-0620004bd38b",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"email\": \"{{emailUser2}}\",\r\n    \"password\":\"{{passwordUser2}}\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/login",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "login"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-28T07:19:30.000Z",
+            "updatedAt": "2026-06-30T14:15:09.000Z",
+            "uid": "4721969-d273df67-a74f-445e-a072-0620004bd38b"
+          },
+          {
+            "name": "Register User",
+            "id": "a08b7123-e85a-418a-84db-571fd25b36ea",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"password\":\"nunu@678\",\r\n    \"name\":\"Senghour Ouk\",\r\n    \"email\": \"senghour.ouk@gmail.com\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/register",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "register"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-08-19T14:14:12.000Z",
+            "uid": "4721969-a08b7123-e85a-418a-84db-571fd25b36ea"
+          },
+          {
+            "name": "Refresh Access Token",
+            "event": [
+              {
+                "script": {
+                  "exec": [
+                    "const jsonData = pm.response.json();",
+                    "if (jsonData.accessToken) {",
+                    "  pm.globals.set(\"accessToken\", jsonData.accessToken);",
+                    "}"
+                  ],
+                  "type": "text/javascript"
+                },
+                "listen": "test"
+              }
+            ],
+            "id": "7ed2a748-d872-2da6-1d53-2b00e6e1a5b3",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "value": "application/json",
+                  "key": "Content-Type"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/refresh",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "refresh"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-10-22T08:33:04.000Z",
+            "updatedAt": "2026-10-22T08:33:04.000Z",
+            "uid": "4721969-7ed2a748-d872-2da6-1d53-2b00e6e1a5b3"
+          },
+          {
+            "name": "Logout User",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test(\"Status code is 200\", function () {",
+                    "    pm.response.to.have.status(200);",
+                    "});"
+                  ],
+                  "type": "text/javascript"
+                }
+              }
+            ],
+            "id": "d6a70d8c-275e-bf4f-3792-b630eabc81e0",
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/logout",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "logout"
+                ]
+              },
+              "description": "Logs out the user and invalidates the refresh token"
+            },
+            "response": [],
+            "createdAt": "2026-10-22T08:33:13.000Z",
+            "updatedAt": "2026-10-22T08:33:13.000Z",
+            "uid": "4721969-d6a70d8c-275e-bf4f-3792-b630eabc81e0"
+          }
+        ],
+        "id": "5f372c7b-9189-4c84-894b-c7e1673b8f69",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-10-22T08:33:13.000Z",
+        "uid": "4721969-5f372c7b-9189-4c84-894b-c7e1673b8f69"
+      },
+      {
+        "name": "Tasks",
+        "item": [
+          {
+            "name": "Get All Task",
+            "id": "b4b7a0e0-305d-4624-a455-445fc5e87583",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tasks?completed=false&offset=0&limit=100",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks"
+                ],
+                "query": [
+                  {
+                    "key": "completed",
+                    "value": "false"
+                  },
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "100"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T15:18:06.000Z",
+            "uid": "4721969-b4b7a0e0-305d-4624-a455-445fc5e87583"
+          },
+          {
+            "name": "Get All Complete Task",
+            "id": "ae254c70-a9cd-4f7c-bec3-f2d3a8ef5587",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks?completed=false&offset=0&limit=3",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks"
+                ],
+                "query": [
+                  {
+                    "key": "completed",
+                    "value": "false"
+                  },
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "3"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T15:01:53.000Z",
+            "uid": "4721969-ae254c70-a9cd-4f7c-bec3-f2d3a8ef5587"
+          },
+          {
+            "name": "Create Task",
+            "id": "4a6bfe50-d770-45bf-ac18-a482c4f2063b",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NWMzOTVhYTgyNzQyZmRiZTExMzI4NGQiLCJuYW1lIjoibnlrYSIsImlhdCI6MTcwNzMxODIzNywiZXhwIjoxNzA5OTEwMjM3fQ.Oot5pnV1qZoSDxg-qng6djMex0x2aLnSa029McLfS4s",
+                  "disabled": true
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"name\":\"Task One\",\r\n    \"description\":\"Task One Description\",\r\n    \"completed\": false,\r\n    \"dueDate\": null\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T15:01:54.000Z",
+            "uid": "4721969-4a6bfe50-d770-45bf-ac18-a482c4f2063b"
+          },
+          {
+            "name": "Get Single Task",
+            "id": "703381da-2914-4a02-8d3e-ded63470ab03",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks/66f8fb8dbc78f0b26d256a4f",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks",
+                  "66f8fb8dbc78f0b26d256a4f"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-703381da-2914-4a02-8d3e-ded63470ab03"
+          },
+          {
+            "name": "Delete Task",
+            "id": "03f2df9e-6cbf-4aa1-8fb6-68ffcfe25624",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "DELETE",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks/65abca59398b5a3a013bbf8",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks",
+                  "65abca59398b5a3a013bbf8"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-03f2df9e-6cbf-4aa1-8fb6-68ffcfe25624"
+          },
+          {
+            "name": "Update Task",
+            "id": "c855375a-567a-441c-9f36-cfa86959aedb",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"name\":\"Task for Monnyka Pin 03\",\r\n    \"completed\": false\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks/6637ac0ad8b7a127dce20f66",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks",
+                  "6637ac0ad8b7a127dce20f66"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-c855375a-567a-441c-9f36-cfa86959aedb"
+          }
+        ],
+        "id": "d13e36a4-fdd0-4a1c-af82-39f40604d556",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-06-10T14:44:05.000Z",
+        "uid": "4721969-d13e36a4-fdd0-4a1c-af82-39f40604d556"
+      },
+      {
+        "name": "Guest",
+        "item": [
+          {
+            "name": "Get All Guest List",
+            "id": "c9d3d712-890a-4015-8ebf-7f82ddbebeb3",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests?completed=false&offset=0&limit=25",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests"
+                ],
+                "query": [
+                  {
+                    "key": "completed",
+                    "value": "false"
+                  },
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "25"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-23T14:55:08.000Z",
+            "uid": "4721969-c9d3d712-890a-4015-8ebf-7f82ddbebeb3"
+          },
+          {
+            "name": "Get All Complete Guest",
+            "id": "4a6701cb-20a1-4ff2-a231-769e41a3f03d",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks?completed=false&offset=0&limit=3",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks"
+                ],
+                "query": [
+                  {
+                    "key": "completed",
+                    "value": "false"
+                  },
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "3"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-10T15:23:59.000Z",
+            "uid": "4721969-4a6701cb-20a1-4ff2-a231-769e41a3f03d"
+          },
+          {
+            "name": "Create Guest",
+            "id": "47b54d25-78a4-43d5-aea7-34e6d72f139e",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NWMzOTVhYTgyNzQyZmRiZTExMzI4NGQiLCJuYW1lIjoibnlrYSIsImlhdCI6MTcwNzMxODIzNywiZXhwIjoxNzA5OTEwMjM3fQ.Oot5pnV1qZoSDxg-qng6djMex0x2aLnSa029McLfS4s",
+                  "disabled": true
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"guestName\":\"Monnyka Pin\",\r\n    \"guestLocation\":\"Phnom Penh\",\r\n    \"completed\": \"open\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-10T15:23:52.000Z",
+            "uid": "4721969-47b54d25-78a4-43d5-aea7-34e6d72f139e"
+          },
+          {
+            "name": "Get Single Guest",
+            "id": "64cdf009-1df4-49dc-b282-baaffd250b13",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/66f8fb8dbc78f0b26d256a4f",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "66f8fb8dbc78f0b26d256a4f"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-10T15:29:19.000Z",
+            "uid": "4721969-64cdf009-1df4-49dc-b282-baaffd250b13"
+          },
+          {
+            "name": "Delete Guest",
+            "id": "5b9b1c3a-c069-46fd-ace8-1e24479603ad",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "DELETE",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/6a3aa793f5920043c0735cc2",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "6a3aa793f5920043c0735cc2"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-23T15:36:33.000Z",
+            "uid": "4721969-5b9b1c3a-c069-46fd-ace8-1e24479603ad"
+          },
+          {
+            "name": "Update Guest",
+            "id": "f909ac5c-b230-43e2-8114-bc5fdd6f5984",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"status\": \"closed\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/6a301e538277937f8813efaa",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "6a301e538277937f8813efaa"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T15:12:28.000Z",
+            "updatedAt": "2026-06-23T14:22:36.000Z",
+            "uid": "4721969-f909ac5c-b230-43e2-8114-bc5fdd6f5984"
+          },
+          {
+            "name": "Share All Guest List",
+            "id": "0010c226-0c9f-4678-bb78-b9d36f00cab4",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"userId\": \"6a40cbbb05acabc867de29f8\" \n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/share-all",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "share-all"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-28T07:23:36.000Z",
+            "updatedAt": "2026-06-28T07:32:28.000Z",
+            "uid": "4721969-0010c226-0c9f-4678-bb78-b9d36f00cab4"
+          }
+        ],
+        "id": "59596de4-425f-4afe-8eba-d3c7f0b501e0",
+        "createdAt": "2026-06-10T15:12:28.000Z",
+        "updatedAt": "2026-06-28T07:23:36.000Z",
+        "uid": "4721969-59596de4-425f-4afe-8eba-d3c7f0b501e0"
+      },
+      {
+        "name": "Tenant",
+        "item": [
+          {
+            "name": "Get All Tenant List",
+            "id": "03fa3d3c-bfaa-4778-a989-b3977aac46dc",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tenants?offset=0&limit=25",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tenants"
+                ],
+                "query": [
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "25"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-28T07:21:49.000Z",
+            "uid": "4721969-03fa3d3c-bfaa-4778-a989-b3977aac46dc"
+          },
+          {
+            "name": "Get All Complete Guest",
+            "id": "91a5b584-9b38-4626-bdcb-e654e446fa76",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/tasks?completed=false&offset=0&limit=3",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tasks"
+                ],
+                "query": [
+                  {
+                    "key": "completed",
+                    "value": "false"
+                  },
+                  {
+                    "key": "offset",
+                    "value": "0"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "3"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-25T15:57:17.000Z",
+            "uid": "4721969-91a5b584-9b38-4626-bdcb-e654e446fa76"
+          },
+          {
+            "name": "Create Guest",
+            "id": "63193159-e2da-4f7a-98f6-b05ea98630dd",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NWMzOTVhYTgyNzQyZmRiZTExMzI4NGQiLCJuYW1lIjoibnlrYSIsImlhdCI6MTcwNzMxODIzNywiZXhwIjoxNzA5OTEwMjM3fQ.Oot5pnV1qZoSDxg-qng6djMex0x2aLnSa029McLfS4s",
+                  "disabled": true
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"guestName\":\"Monnyka Pin\",\r\n    \"guestLocation\":\"Phnom Penh\",\r\n    \"completed\": \"open\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-25T15:57:17.000Z",
+            "uid": "4721969-63193159-e2da-4f7a-98f6-b05ea98630dd"
+          },
+          {
+            "name": "Get Single Guest",
+            "id": "0ac450cf-df5d-4584-8c6f-dfb572d58471",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/66f8fb8dbc78f0b26d256a4f",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "66f8fb8dbc78f0b26d256a4f"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-25T15:57:17.000Z",
+            "uid": "4721969-0ac450cf-df5d-4584-8c6f-dfb572d58471"
+          },
+          {
+            "name": "Delete Guest",
+            "id": "7e8319d4-2bc2-42d0-bb19-2d0e5e14fdfa",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "DELETE",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/6a3aa793f5920043c0735cc2",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "6a3aa793f5920043c0735cc2"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-25T15:57:17.000Z",
+            "uid": "4721969-7e8319d4-2bc2-42d0-bb19-2d0e5e14fdfa"
+          },
+          {
+            "name": "Update Guest",
+            "id": "3007e003-1bb7-493c-8771-448d52911ae9",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n    \"status\": \"closed\"\r\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/guests/6a301e538277937f8813efaa",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "guests",
+                  "6a301e538277937f8813efaa"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-25T15:57:17.000Z",
+            "updatedAt": "2026-06-25T15:57:17.000Z",
+            "uid": "4721969-3007e003-1bb7-493c-8771-448d52911ae9"
+          }
+        ],
+        "id": "c4fdbd21-a990-4b3b-8abc-62ce97266f25",
+        "createdAt": "2026-06-25T15:57:17.000Z",
+        "updatedAt": "2026-06-25T15:57:46.000Z",
+        "uid": "4721969-c4fdbd21-a990-4b3b-8abc-62ce97266f25"
+      },
+      {
+        "name": "Project",
+        "item": [
+          {
+            "name": "Create Project",
+            "id": "88c34a56-ea35-4af1-bd47-aee9eb996671",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\r\n\"name\": \"Created Project new112\",\r\n\"description\": \"test\",\r\n\"scope\":[\"-testing new version\",\"-update new version\"],\r\n\"tasks\":[],\r\n\"member\":[{\"user\": \"667c37eb6bb65f95c11e2418\",\"role\":\"developer\"}]\r\n}\r\n\r\n",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/projects",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "projects"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-88c34a56-ea35-4af1-bd47-aee9eb996671"
+          },
+          {
+            "name": "Get Project Details",
+            "id": "7bf9aea5-2668-4059-861a-f2a9eba44d96",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/projects/67a853b984ea641355625f4b",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "projects",
+                  "67a853b984ea641355625f4b"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-7bf9aea5-2668-4059-861a-f2a9eba44d96"
+          },
+          {
+            "name": "Delete Project",
+            "id": "a38aa488-f0a7-4390-8d6b-ead51f545053",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "DELETE",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/projects/66c353f14157dc5b42d636b6",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "projects",
+                  "66c353f14157dc5b42d636b6"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-a38aa488-f0a7-4390-8d6b-ead51f545053"
+          },
+          {
+            "name": "Get Project List",
+            "id": "212aa677-37e2-426c-bed8-94c3b0c4d16c",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/projects",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "projects"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-212aa677-37e2-426c-bed8-94c3b0c4d16c"
+          },
+          {
+            "name": "Update Project",
+            "id": "ad614fb3-f114-4075-a65f-e1567063f48a",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"tasks\":[\"67769a6ec678fe53ad3a3727\"]\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/projects/67769a48c678fe53ad3a3725",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "projects",
+                  "67769a48c678fe53ad3a3725"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-ad614fb3-f114-4075-a65f-e1567063f48a"
+          }
+        ],
+        "id": "4df8fe5d-c916-499a-b585-c0fb2397838c",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-06-10T14:44:05.000Z",
+        "uid": "4721969-4df8fe5d-c916-499a-b585-c0fb2397838c"
+      },
+      {
+        "name": "Asset",
+        "item": [
+          {
+            "name": "Create Asset",
+            "id": "5ccbac7e-5d24-4c3b-8cd9-8b8dd3d044ea",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"name\":\"Testing1\",\n    \"description\":\"this is testing asset1\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/assets",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "assets"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-5ccbac7e-5d24-4c3b-8cd9-8b8dd3d044ea"
+          },
+          {
+            "name": "Get All Assets",
+            "id": "1507c33e-414e-4d40-9313-b243b2d1db66",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/assets",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "assets"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-1507c33e-414e-4d40-9313-b243b2d1db66"
+          },
+          {
+            "name": "Delete Asset",
+            "id": "341d3736-0009-4b50-a7f0-0ac83019d968",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "DELETE",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/assets/67a85476f31a30f70cc6cf48",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "assets",
+                  "67a85476f31a30f70cc6cf48"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-341d3736-0009-4b50-a7f0-0ac83019d968"
+          },
+          {
+            "name": "Update Assets",
+            "id": "620c5a40-faa1-4829-b6da-bb6eee18c38c",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"name\":\"Apple Monitor\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/assets/67a854599298acbe8f0046f6",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "assets",
+                  "67a854599298acbe8f0046f6"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-620c5a40-faa1-4829-b6da-bb6eee18c38c"
+          },
+          {
+            "name": "Get Assets Details",
+            "id": "f8c1c8b0-53e5-4d8e-96b9-58d4edae64b4",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/assets/67a854599298acbe8f0046f6",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "assets",
+                  "67a854599298acbe8f0046f6"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-f8c1c8b0-53e5-4d8e-96b9-58d4edae64b4"
+          }
+        ],
+        "id": "a9f81bdf-7477-4343-97ec-8395587729c7",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-06-10T15:24:30.000Z",
+        "uid": "4721969-a9f81bdf-7477-4343-97ec-8395587729c7"
+      },
+      {
+        "name": "Transaction",
+        "item": [
+          {
+            "name": "Add Income",
+            "id": "b19eef8d-8790-4cf1-aedc-7c0215c31780",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"667c37eb6bb65f95c11e2418\",\n  \"type\": \"income\",\n  \"amount\": 50,\n  \"description\": \"Designing\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/transactions",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "transactions"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-b19eef8d-8790-4cf1-aedc-7c0215c31780"
+          },
+          {
+            "name": "Add Expanse",
+            "id": "43bf7144-ff32-4395-9c61-6cc4037c6e51",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "method": "GET",
+              "header": []
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-43bf7144-ff32-4395-9c61-6cc4037c6e51"
+          },
+          {
+            "name": "Get All Transaction",
+            "id": "47c4a15b-6441-4406-866f-e989fffd14cd",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "method": "GET",
+              "header": []
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-47c4a15b-6441-4406-866f-e989fffd14cd"
+          }
+        ],
+        "id": "49211b21-18f7-4942-9f3b-c46a0dc48acb",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-06-10T14:44:05.000Z",
+        "uid": "4721969-49211b21-18f7-4942-9f3b-c46a0dc48acb"
+      },
+      {
+        "name": "Dashboard",
+        "item": [
+          {
+            "name": "Dashboard Overview",
+            "id": "7f693dc1-6711-4f0d-bb74-a2d05db66ea5",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": ""
+              },
+              "url": {
+                "raw": "{{PhoenixURL}}/api/v1/dashboard",
+                "host": [
+                  "{{PhoenixURL}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "dashboard"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-06-10T14:44:05.000Z",
+            "updatedAt": "2026-06-10T14:44:05.000Z",
+            "uid": "4721969-7f693dc1-6711-4f0d-bb74-a2d05db66ea5"
+          }
+        ],
+        "id": "7d9ab304-91a1-4ba4-8e0c-e7aaedcf78a1",
+        "createdAt": "2026-06-10T14:44:05.000Z",
+        "updatedAt": "2026-06-10T14:44:05.000Z",
+        "uid": "4721969-7d9ab304-91a1-4ba4-8e0c-e7aaedcf78a1"
+      },
+      {
+        "name": "Tenants",
+        "item": [
+          {
+            "name": "Rooms",
+            "item": [
+              {
+                "name": "Get Room",
+                "id": "74e811cb-3067-412a-aa14-17da2cb63968",
+                "protocolProfileBehavior": {
+                  "disableBodyPruning": true
+                },
+                "request": {
+                  "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                      {
+                        "key": "token",
+                        "value": "{{accessToken}}",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "method": "GET",
+                  "header": [],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"number\": \"Room 2\",\n  \"description\": \"Floor 1 room\"\n}",
+                    "options": {
+                      "raw": {
+                        "language": "json"
+                      }
+                    }
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/v1/rooms",
+                    "host": [
+                      "{{base_url}}"
+                    ],
+                    "path": [
+                      "api",
+                      "v1",
+                      "rooms"
+                    ]
+                  }
+                },
+                "response": [],
+                "createdAt": "2026-08-17T16:46:34.000Z",
+                "updatedAt": "2026-08-17T16:47:08.000Z",
+                "uid": "4721969-74e811cb-3067-412a-aa14-17da2cb63968"
+              },
+              {
+                "name": "Create Room",
+                "id": "387638f6-168b-4369-8431-ce94783769a3",
+                "protocolProfileBehavior": {
+                  "disableBodyPruning": true
+                },
+                "request": {
+                  "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                      {
+                        "key": "token",
+                        "value": "{{accessToken}}",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "method": "POST",
+                  "header": [],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"number\": \"Room 4\",\n  \"description\": \"Floor 1 room\"\n}",
+                    "options": {
+                      "raw": {
+                        "language": "json"
+                      }
+                    }
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/v1/rooms",
+                    "host": [
+                      "{{base_url}}"
+                    ],
+                    "path": [
+                      "api",
+                      "v1",
+                      "rooms"
+                    ]
+                  }
+                },
+                "response": [],
+                "createdAt": "2026-08-16T08:30:48.000Z",
+                "updatedAt": "2026-08-19T16:31:00.000Z",
+                "uid": "4721969-387638f6-168b-4369-8431-ce94783769a3"
+              },
+              {
+                "name": "New Request",
+                "id": "ae16804b-b406-44a4-b477-35fc1c664878",
+                "protocolProfileBehavior": {
+                  "disableBodyPruning": true
+                },
+                "request": {
+                  "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                      {
+                        "key": "token",
+                        "value": "{{accessToken}}",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "method": "PUT",
+                  "header": [],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"number\": \"Room #4\",\n    \"description\": \"Big room \"\n}",
+                    "options": {
+                      "raw": {
+                        "language": "json"
+                      }
+                    }
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/v1/rooms/6a83366f3b0f0ce18065233a",
+                    "host": [
+                      "{{base_url}}"
+                    ],
+                    "path": [
+                      "api",
+                      "v1",
+                      "rooms",
+                      "6a83366f3b0f0ce18065233a"
+                    ]
+                  }
+                },
+                "response": [],
+                "createdAt": "2026-08-17T16:44:58.000Z",
+                "updatedAt": "2026-08-17T16:57:44.000Z",
+                "uid": "4721969-ae16804b-b406-44a4-b477-35fc1c664878"
+              }
+            ],
+            "id": "ac2b1d07-c31f-419d-92f9-677b994ba332",
+            "createdAt": "2026-08-16T08:30:31.000Z",
+            "updatedAt": "2026-08-17T16:47:08.000Z",
+            "uid": "4721969-ac2b1d07-c31f-419d-92f9-677b994ba332"
+          },
+          {
+            "name": "Create Rental",
+            "id": "1652b465-6ecb-4887-a858-77ecba14c8d2",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"roomId\": \"6a85d818a8e2bbc1d76e178c\",\n  \"moveInDate\": \"2026-05-17\",\n  \"moveOutDate\": null,\n  \"rentAmount\": 2,\n  \"dueDate\": \"2026-09-17\"\n}\n",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-14T17:06:25.000Z",
+            "updatedAt": "2026-08-19T16:31:01.000Z",
+            "uid": "4721969-1652b465-6ecb-4887-a858-77ecba14c8d2"
+          },
+          {
+            "name": "Create Rental Copy",
+            "id": "8fea9ecf-5111-403c-9677-750f1f907755",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "PATCH",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{ \n    \"status\": \"unpaid\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals/6a85d31ab739cf38a8cfe5ac/status",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals",
+                  "6a85d31ab739cf38a8cfe5ac",
+                  "status"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-19T14:03:46.000Z",
+            "updatedAt": "2026-09-24T01:40:11.000Z",
+            "uid": "4721969-8fea9ecf-5111-403c-9677-750f1f907755"
+          },
+          {
+            "name": "Get rentals",
+            "id": "5c7d9f60-371a-4b5c-a960-4cf78de9c65b",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-14T17:09:35.000Z",
+            "updatedAt": "2026-08-14T17:20:35.000Z",
+            "uid": "4721969-5c7d9f60-371a-4b5c-a960-4cf78de9c65b"
+          },
+          {
+            "name": "Get Rentals (by Month)",
+            "id": "3a106371-8c95-4091-a94c-5d2ad3b7859a",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals?month=2026-05",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals"
+                ],
+                "query": [
+                  {
+                    "key": "month",
+                    "value": "2026-05"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-16T03:58:26.000Z",
+            "updatedAt": "2026-08-19T16:31:02.000Z",
+            "uid": "4721969-3a106371-8c95-4091-a94c-5d2ad3b7859a"
+          },
+          {
+            "name": "Get Rentals State (by Month)",
+            "id": "428f6f97-0818-4e0b-bde0-17aaceaa94bb",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals/stats?month=2027-12",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals",
+                  "stats"
+                ],
+                "query": [
+                  {
+                    "key": "month",
+                    "value": "2027-12"
+                  }
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-16T07:13:59.000Z",
+            "updatedAt": "2026-08-19T14:14:03.000Z",
+            "uid": "4721969-428f6f97-0818-4e0b-bde0-17aaceaa94bb"
+          },
+          {
+            "name": "Payment",
+            "id": "9140b5c5-45de-4422-a7d6-a30bb18e7d5f",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "POST",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{ \"amount\": 35, \"paymentDate\": \"2026-06-18\" }",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals/6a85d829a8e2bbc1d76e178f/payments",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals",
+                  "6a85d829a8e2bbc1d76e178f",
+                  "payments"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-14T17:26:19.000Z",
+            "updatedAt": "2026-08-19T16:31:00.000Z",
+            "uid": "4721969-9140b5c5-45de-4422-a7d6-a30bb18e7d5f"
+          },
+          {
+            "name": "Rentals State",
+            "id": "a4fe270a-6737-4005-9065-977970092768",
+            "protocolProfileBehavior": {
+              "disableBodyPruning": true
+            },
+            "request": {
+              "auth": {
+                "type": "bearer",
+                "bearer": [
+                  {
+                    "key": "token",
+                    "value": "{{accessToken}}",
+                    "type": "string"
+                  }
+                ]
+              },
+              "method": "GET",
+              "header": [],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"amount\": 500\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              },
+              "url": {
+                "raw": "{{base_url}}/api/v1/rentals/stats",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "rentals",
+                  "stats"
+                ]
+              }
+            },
+            "response": [],
+            "createdAt": "2026-08-15T14:17:53.000Z",
+            "updatedAt": "2026-08-15T14:19:30.000Z",
+            "uid": "4721969-a4fe270a-6737-4005-9065-977970092768"
+          }
+        ],
+        "id": "84bc2d1b-64d6-43c2-becf-90287f661408",
+        "createdAt": "2026-08-14T17:05:56.000Z",
+        "updatedAt": "2026-08-19T14:03:46.000Z",
+        "uid": "4721969-84bc2d1b-64d6-43c2-becf-90287f661408"
+      },
+      {
+        "name": "Get User Profile",
+        "id": "b8204127-573a-08be-cf28-c9427106283c",
+        "request": {
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              {
+                "key": "token",
+                "value": "{{accessToken}}",
+                "type": "string"
+              }
+            ]
+          },
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{base_url}}/api/v1/profile",
+            "host": [
+              "{{base_url}}"
+            ],
+            "path": [
+              "api",
+              "v1",
+              "profile"
+            ]
+          },
+          "description": "Get authenticated user profile with userrole (Admin, normal) and user preferences (theme preference: dark, light, system)"
+        },
+        "response": [],
+        "createdAt": "2026-10-22T08:35:00.000Z",
+        "updatedAt": "2026-10-22T08:35:00.000Z",
+        "uid": "4721969-b8204127-573a-08be-cf28-c9427106283c"
+      },
+      {
+        "name": "Update User Profile",
+        "id": "b4acde5a-4a7d-ec3a-9c46-c9739eb7ead0",
+        "request": {
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              {
+                "key": "token",
+                "value": "{{accessToken}}",
+                "type": "string"
+              }
+            ]
+          },
+          "method": "PUT",
+          "header": [
+            {
+              "value": "application/json",
+              "key": "Content-Type"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"Senghour Ouk\",\n  \"avatar\": \"\",\n  \"preferences\": {\n    \"theme\": \"dark\"\n  }\n}",
+            "options": {
+              "raw": {
+                "language": "json"
+              }
+            }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/v1/profile",
+            "host": [
+              "{{base_url}}"
+            ],
+            "path": [
+              "api",
+              "v1",
+              "profile"
+            ]
+          },
+          "description": "Update user profile details and user preference (theme preference: dark, light, system)"
+        },
+        "response": [],
+        "createdAt": "2026-10-22T08:35:06.000Z",
+        "updatedAt": "2026-10-22T08:35:06.000Z",
+        "uid": "4721969-b4acde5a-4a7d-ec3a-9c46-c9739eb7ead0"
+      }
+    ],
+    "variable": [
+      {
+        "key": "bearer_token_0c2y",
+        "secret": true
+      },
+      {
+        "key": "json_web_token_178e",
+        "secret": true
+      }
+    ]
+  }
+}
