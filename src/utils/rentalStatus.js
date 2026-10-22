@@ -44,7 +44,9 @@ const toDay = (value) => {
  * Positive = days remaining, 0 = due today, negative = overdue by N days.
  */
 const daysUntilDue = (dueDate, today = new Date()) => {
-  return Math.round((toDay(dueDate).getTime() - toDay(today).getTime()) / DAY_MS);
+  return Math.round(
+    (toDay(dueDate).getTime() - toDay(today).getTime()) / DAY_MS,
+  );
 };
 
 /**
@@ -54,6 +56,13 @@ const daysUntilDue = (dueDate, today = new Date()) => {
 const isDueSoon = (dueDate, today = new Date()) => {
   const days = daysUntilDue(dueDate, today);
   return days >= 0 && days <= 3;
+};
+
+/**
+ * True when the due date is exactly N days from today (default 3 days).
+ */
+const isDueInDays = (dueDate, targetDays = 3, today = new Date()) => {
+  return daysUntilDue(dueDate, today) === targetDays;
 };
 
 /**
@@ -83,6 +92,7 @@ module.exports = {
   computeRentalStatus,
   daysUntilDue,
   isDueSoon,
+  isDueInDays,
   toDay,
   PAYMENT_STATUSES,
   monthKey,

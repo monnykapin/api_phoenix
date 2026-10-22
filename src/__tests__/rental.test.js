@@ -11,6 +11,7 @@ const {
   computeRentalStatus,
   daysUntilDue,
   isDueSoon,
+  isDueInDays,
   monthKey,
 } = require("../utils/rentalStatus");
 const { resolveMonthStatuses } = require("../services/paymentStatus");
@@ -40,7 +41,10 @@ const createApp = (userId) => {
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
-    req.user = { userId: userId || new mongoose.Types.ObjectId(), name: "Test User" };
+    req.user = {
+      userId: userId || new mongoose.Types.ObjectId(),
+      name: "Test User",
+    };
     next();
   });
   app.use("/api/v1/rentals", rentalRoutes);
@@ -50,25 +54,45 @@ const createApp = (userId) => {
 
 describe("rentalStatus util", () => {
   it("returns paid when a payment is recorded on/before due date", () => {
-    expect(computeRentalStatus({ paymentDate: daysFromNow(-5), dueDate: daysFromNow(-1) })).toBe("paid");
+    expect(
+      computeRentalStatus({
+        paymentDate: daysFromNow(-5),
+        dueDate: daysFromNow(-1),
+      }),
+    ).toBe("paid");
   });
 
   it("returns paid for a late payment", () => {
-    expect(computeRentalStatus({ paymentDate: daysFromNow(2), dueDate: daysFromNow(-1) })).toBe("paid");
+    expect(
+      computeRentalStatus({
+        paymentDate: daysFromNow(2),
+        dueDate: daysFromNow(-1),
+      }),
+    ).toBe("paid");
   });
 
   it("returns overdue when due date passed with no payment", () => {
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(-3) })).toBe("overdue");
+    expect(
+      computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(-3) }),
+    ).toBe("overdue");
   });
 
   it("returns paid (prepaid) when more than 3 days before due with no payment", () => {
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(10) })).toBe("paid");
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(4) })).toBe("paid");
+    expect(
+      computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(10) }),
+    ).toBe("paid");
+    expect(
+      computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(4) }),
+    ).toBe("paid");
   });
 
   it("returns pending within 3 days before the due date", () => {
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(3) })).toBe("pending");
-    expect(computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(0) })).toBe("pending");
+    expect(
+      computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(3) }),
+    ).toBe("pending");
+    expect(
+      computeRentalStatus({ paymentDate: null, dueDate: daysFromNow(0) }),
+    ).toBe("pending");
   });
 
   it("computes daysUntilDue correctly", () => {
@@ -84,6 +108,13 @@ describe("rentalStatus util", () => {
     expect(isDueSoon(daysFromNow(-1))).toBe(false);
   });
 
+  it("checks if due date is exactly N days away with isDueInDays", () => {
+    expect(isDueInDays(daysFromNow(3), 3)).toBe(true);
+    expect(isDueInDays(daysFromNow(2), 3)).toBe(false);
+    expect(isDueInDays(daysFromNow(4), 3)).toBe(false);
+    expect(isDueInDays(daysFromNow(0), 3)).toBe(false);
+  });
+
   it("formats a date as its YYYY-MM month key", () => {
     expect(monthKey(new Date(2026, 6, 25))).toBe("2026-07");
     expect(monthKey(new Date(2026, 0, 1))).toBe("2026-01");
@@ -91,13 +122,13 @@ describe("rentalStatus util", () => {
 
   it("addOneMonth shifts to the next month and clamps short months", () => {
     expect(addOneMonth(new Date(2026, 5, 17)).getTime()).toBe(
-      new Date(2026, 6, 17).getTime()
+      new Date(2026, 6, 17).getTime(),
     );
     expect(addOneMonth(new Date(2026, 0, 31)).getTime()).toBe(
-      new Date(2026, 1, 28).getTime()
+      new Date(2026, 1, 28).getTime(),
     );
     expect(addOneMonth(new Date(2026, 11, 15)).getTime()).toBe(
-      new Date(2027, 0, 15).getTime()
+      new Date(2027, 0, 15).getTime(),
     );
   });
 
@@ -154,7 +185,7 @@ describe("rentalStatus util", () => {
 
       const statuses = await resolveMonthStatuses(
         [paidInJuly, noRecord],
-        "2026-07"
+        "2026-07",
       );
       expect(statuses).toEqual([
         { status: "paid", paymentDate: paidInJuly.paymentDate, amount: null },
@@ -195,7 +226,7 @@ describe("Rental Model", () => {
         dueDate: daysFromNow(1),
         paymentStatus: "bogus",
         createdBy: new mongoose.Types.ObjectId(),
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -270,7 +301,7 @@ describe("Rental Controller", () => {
         .expect(201);
 
       expect(new Date(res.body.rental.dueDate).getTime()).toBe(
-        addOneMonth(moveIn).getTime()
+        addOneMonth(moveIn).getTime(),
       );
     });
 
@@ -288,7 +319,7 @@ describe("Rental Controller", () => {
         .expect(201);
 
       expect(new Date(res.body.rental.dueDate).getTime()).toBe(
-        addOneMonth(moveIn).getTime()
+        addOneMonth(moveIn).getTime(),
       );
     });
 
@@ -486,7 +517,9 @@ describe("Rental Controller", () => {
 
       // January tenant is still renting, so it should appear in February too.
       expect(feb.body.total).toBe(2);
-      expect(feb.body.rentals.map((r) => r.rentAmount).sort()).toEqual([100, 200]);
+      expect(feb.body.rentals.map((r) => r.rentAmount).sort()).toEqual([
+        100, 200,
+      ]);
     });
 
     it("returns 400 for an invalid month filter", async () => {
@@ -596,7 +629,11 @@ describe("Rental Controller", () => {
     it("scopes collectedRent to the current month when no month is selected", async () => {
       const now = new Date();
       const thisMonthPayment = new Date(now.getFullYear(), now.getMonth(), 5);
-      const lastMonthPayment = new Date(now.getFullYear(), now.getMonth() - 1, 5);
+      const lastMonthPayment = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        5,
+      );
 
       const thisMonthRental = await Rental.create({
         roomId: room._id,
@@ -832,7 +869,7 @@ describe("Rental Controller", () => {
         .expect(200);
 
       const current = `${new Date().getFullYear()}-${String(
-        new Date().getMonth() + 1
+        new Date().getMonth() + 1,
       ).padStart(2, "0")}`;
       const record = await RentalPayment.findOne({
         rentalId: rental._id,
