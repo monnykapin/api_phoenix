@@ -14,12 +14,24 @@ const getProfile = asyncWrapper(async (req, res, next) => {
 
 const updateProfile = asyncWrapper(async (req, res, next) => {
   const userId = req.user.userId;
-  const { name, email, avatar } = req.body;
+  const { name, email, avatar, preferences, theme } = req.body;
 
   const updateData = {};
   if (name && name.trim()) updateData.name = name.trim();
   if (email && email.trim()) updateData.email = email.trim();
   if (avatar && avatar.trim()) updateData.avatar = avatar.trim();
+
+  if (preferences && typeof preferences === "object" && preferences !== null) {
+    if (preferences.theme !== undefined) {
+      updateData["preferences.theme"] =
+        typeof preferences.theme === "string"
+          ? preferences.theme.trim()
+          : preferences.theme;
+    }
+  } else if (theme !== undefined) {
+    updateData["preferences.theme"] =
+      typeof theme === "string" ? theme.trim() : theme;
+  }
 
   if (email && email.trim()) {
     const existingUser = await User.findOne({

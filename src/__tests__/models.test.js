@@ -138,6 +138,21 @@ describe("User Model", () => {
     expect(user.name).toBe("Test User");
     expect(user.email).toBe("test@example.com");
     expect(user.balance).toBe(0);
+    expect(user.role).toBe("normal");
+    expect(user.preferences.theme).toBe("system");
+  });
+
+  it("should allow Admin role and custom theme preference", async () => {
+    const user = await User.create({
+      name: "Admin User",
+      email: "admin-model@example.com",
+      password: "password123",
+      role: "Admin",
+      preferences: { theme: "dark" },
+    });
+
+    expect(user.role).toBe("Admin");
+    expect(user.preferences.theme).toBe("dark");
   });
 
   it("should hash password on save", async () => {
