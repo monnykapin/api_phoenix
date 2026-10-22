@@ -1,17 +1,29 @@
 /**
  * Room payment-status report.
  *
- * Collects the rentals whose paymentStatus is "pending" or "overdue", groups
- * them by room, formats a human-readable summary, and sends it as a Telegram
- * alert. Used by the daily cron.
+ * Collects rentals that are overdue (after due date), or pending within the
+ * due-soon window (3 days, 2 days, 1 day before, and due today), groups them
+ * by room, formats a human-readable summary, and sends it as a Telegram alert.
+ * Used by the daily cron.
  */
 
 const Rental = require("../models/Rental");
 const { sendTelegramMessage } = require("./telegram");
+const { daysUntilDue, isDueSoon } = require("../utils/rentalStatus");
 
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 // Link shown in the alert footer.
@@ -24,24 +36,31 @@ const formatDate = (value) => {
   return `${day} ${MONTHS[d.getMonth()]}, ${d.getFullYear()}`;
 };
 
-// Fetch pending/overdue rentals, grouped into { overdue: [...], pending: [...] }
-// where each entry is { room, dueDate }.
-const getPaymentStatusReport = async () => {
+// Fetch pending (3 days, 2 days, 1 day before, and due today) and overdue rentals,
+// grouped into { overdue: [...], pending: [...] } where each entry is { room, dueDate }.
+const getPaymentStatusReport = async (today = new Date()) => {
   const rentals = await Rental.find({
-    paymentStatus: { $in: ["pending", "overdue"] },
+    paymentStatus: { $ne: "paid" },
+    paymentDate: null,
   }).populate("roomId", "number");
 
   const overdue = [];
   const pending = [];
 
   for (const rental of rentals) {
+    if (!rental.dueDate) continue;
+
+    const days = daysUntilDue(rental.dueDate, today);
     const item = {
       room: rental.roomId ? rental.roomId.number : "Unknown",
       dueDate: rental.dueDate,
     };
 
-    if (rental.paymentStatus === "overdue") overdue.push(item);
-    else pending.push(item);
+    if (days < 0 || rental.paymentStatus === "overdue") {
+      overdue.push(item);
+    } else if (isDueSoon(rental.dueDate, today)) {
+      pending.push(item);
+    }
   }
 
   const byDueDate = (a, b) => new Date(a.dueDate) - new Date(b.dueDate);
@@ -88,8 +107,8 @@ const buildPaymentStatusMessage = ({ overdue = [], pending = [] }) => {
 };
 
 // Build the report and send it via Telegram. Returns a summary of what happened.
-const reportPaymentStatus = async () => {
-  const report = await getPaymentStatusReport();
+const reportPaymentStatus = async (today = new Date()) => {
+  const report = await getPaymentStatusReport(today);
   const total = report.overdue.length + report.pending.length;
 
   if (total === 0) {

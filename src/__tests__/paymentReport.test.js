@@ -51,36 +51,94 @@ describe("buildPaymentStatusMessage", () => {
 });
 
 describe("getPaymentStatusReport", () => {
-  it("groups pending and overdue rentals by room", async () => {
+  it("groups pending (3 days, 2 days, 1 day, today) and overdue rentals by room", async () => {
     const room = await Room.create({ number: "401" });
     const tenant = await Tenant.create({ name: "Carol" });
 
+    // Overdue (5 days ago) -> should be included in overdue
     await Rental.create({
       roomId: room._id,
       tenantId: tenant._id,
       moveInDate: daysFromNow(-30),
       rentAmount: 500,
-      dueDate: daysFromNow(-5), // overdue
+      dueDate: daysFromNow(-5),
       paymentStatus: "overdue",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
+    // Due in 3 days -> should be included in pending
     await Rental.create({
       roomId: room._id,
       tenantId: tenant._id,
       moveInDate: daysFromNow(-30),
       rentAmount: 400,
-      dueDate: daysFromNow(2), // pending (within 3 days)
-      paymentStatus: "pending",
+      dueDate: daysFromNow(3),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Due in 2 days -> should be included in pending
+    await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 300,
+      dueDate: daysFromNow(2),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Due in 1 day -> should be included in pending
+    await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 350,
+      dueDate: daysFromNow(1),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Due today (0 days) -> should be included in pending
+    await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 320,
+      dueDate: daysFromNow(0),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Due in 4 days -> should NOT be included in pending (> 3 days)
+    await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 350,
+      dueDate: daysFromNow(4),
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Already paid -> should NOT be included
+    await Rental.create({
+      roomId: room._id,
+      tenantId: tenant._id,
+      moveInDate: daysFromNow(-30),
+      rentAmount: 450,
+      dueDate: daysFromNow(3),
+      paymentDate: daysFromNow(-1),
+      paymentStatus: "paid",
       createdBy: new mongoose.Types.ObjectId(),
     });
 
     const report = await getPaymentStatusReport();
 
     expect(report.overdue).toHaveLength(1);
-    expect(report.pending).toHaveLength(1);
+    expect(report.pending).toHaveLength(4);
     expect(report.overdue[0].room).toBe("401");
-    expect(report.pending[0].room).toBe("401");
+    expect(report.pending.map((p) => p.room)).toEqual([
+      "401",
+      "401",
+      "401",
+      "401",
+    ]);
   });
 });
 
