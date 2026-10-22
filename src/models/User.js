@@ -31,6 +31,24 @@ const UserSchema = new mongoose.Schema({
   avatar: {
     type: String,
   },
+  role: {
+    type: String,
+    enum: {
+      values: ["Admin", "normal"],
+      message: "{VALUE} is not a valid role",
+    },
+    default: "normal",
+  },
+  preferences: {
+    theme: {
+      type: String,
+      enum: {
+        values: ["dark", "light", "system"],
+        message: "{VALUE} is not a valid theme",
+      },
+      default: "system",
+    },
+  },
   balance: {
     type: Number,
     required: true,
